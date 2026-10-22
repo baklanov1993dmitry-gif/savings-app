@@ -427,7 +427,7 @@ function importMovement(ws) {
     const [base, ...rest] = raw.split('_'); const extra = rest.join('_').trim();
     const where = sv(col.where != null ? S.get(r, col.where) : '') || extra || '';
     const history = [];
-    for (const [c, d] of dcols) { const v = S.get(r, c); if (typeof v === 'number') history.push({ d, amt: v }); }
+    for (const [c, d] of dcols) { const v = S.get(r, c); if (typeof v === 'number') history.push({ d, amt: v }); else if (history.length && history[history.length - 1].amt !== 0 && sv(v)) history.push({ d, amt: 0 }); /* «переведено», «-» после сумм = деньги ушли */ }
     const cond = sv(col.cond != null ? S.get(r, col.cond) : '');
     const open = col.open != null ? anyDate(S.get(r, col.open)) : '', close = col.close != null ? anyDate(S.get(r, col.close)) : '';
     let comment = sv(col.cm != null ? S.get(r, col.cm) : '');
@@ -435,6 +435,8 @@ function importMovement(ws) {
     if (!history.length && !where && !cond && !open && !close && !comment) continue;
     const m = cond.match(/(\d{1,2}(?:[.,]\d+)?)\s*%/);
     history.sort((a, b) => a.d < b.d ? -1 : 1);
+    /* срок вклада истёк, а нуля в таблице нет — деньги переложены в другую строку: закрываем, иначе сумма считается дважды */
+    if (close && close <= todayISO() && history.length && history[history.length - 1].amt !== 0) { history.push({ d: close > history[history.length - 1].d ? close : addDays(history[history.length - 1].d, 1), amt: 0 }); }
     out.push({ id: uid(), type: normType(base), where: where || base.trim(), cur: guessCur(raw, where), rate: m ? Number(m[1].replace(',', '.')) : '', cond, open, close, reopen: '', comment, history, archived: history.length > 0 && history[history.length - 1].amt === 0 });
   }
   return out;
@@ -1440,6 +1442,7 @@ function viewSet() {
     <button class="btn" data-a="xlsx">${ic('xls')}Импорт из Excel (.xlsx)</button>
     <button class="btn" data-a="export">${ic('down')}Скачать зашифрованную копию</button>
     <button class="btn" data-a="import">${ic('up')}Загрузить копию</button>
+    <button class="btn" data-a="clrpos">Очистить все позиции</button>
     <button class="btn" data-a="demo">Добавить демо-данные</button>
     <div class="sm mut">Excel читается прямо в браузере и никуда не отправляется. Копия — это зашифрованный файл: без пароля или ключа восстановления это набор случайных байт.</div></div>
   <div class="card col" style="grid-column:1/-1"><h3>Как это защищено</h3><div class="sm mut">Мастер-пароль → PBKDF2‑SHA256, ${Vault.ITER_PW.toLocaleString('ru-RU')} итераций → ключ, которым открывается случайный ключ данных. Данные шифруются AES‑256‑GCM (с проверкой целостности). Пароль не хранится. В браузере лежит только шифротекст. Лимит попыток и задержка защищают от случайного подбора на устройстве, а от кражи файла защищает сила пароля.</div></div></div>`;
@@ -1467,6 +1470,7 @@ async function actions(a, el) {
     case 'syncon': { const repo = $('#sr').value.trim().replace(/^https?:\/\/github\.com\//, ''), token = $('#st').value.trim(), er = $('#ser'); if (!/^[\w.-]+\/[\w.-]+$/.test(repo) || !token) return er.textContent = 'Нужны репозиторий вида имя/репо и токен'; S.data.settings.sync = { repo, token, path: 'vault.json' }; await persist(); Sync.run(); toast('Синхронизация включена'); render(); break; }
     case 'bioon': try { const b = await Bio.enable(); LS.set('sv_vault', JSON.stringify(b)); toast('Вход по отпечатку включён'); } catch (e) { LS.del('sv_pk'); toast(e.message === 'NO_PRF' ? 'Это устройство не поддерживает такой вход' : 'Не получилось включить'); } render(); break;
     case 'biooff': LS.set('sv_vault', JSON.stringify(Bio.disable())); toast('Вход по отпечатку выключен'); render(); break;
+    case 'clrpos': { const n = S.data.positions.length; if (!n) { toast('Позиций нет'); break; } if (!await ask(`Удалить все позиции (${n})? Заметки и анализ останутся. Можно будет отменить.`, 'Удалить', true)) break; const old = S.data.positions; S.data.positions = []; await persist(); render(); undoToast('Позиции удалены', async () => { S.data.positions = old; await persist(); render(); }, 12000); break; }
     case 'syncnow': Sync.run(); break;
     case 'syncoff': if (await ask('Отключить синхронизацию? Данные на устройстве останутся.', 'Отключить')) { delete S.data.settings.sync; LS.del('sv_sha'); await persist(); render(); } break;
     case 'hide': S.data.settings.hide = !S.data.settings.hide; persist(); render(); break;
@@ -1525,11 +1529,12 @@ async function doXlsx(f) {
   closeModal('ovl', true);
   if (!found.length) return toast('Не нашёл знакомых листов («движение средств», «состояние средств», «Мысли»)');
   modal(`<div class="row" style="margin-bottom:8px"><h3 class="grow">Импорт из Excel</h3><button class="ic" data-x="c">${ic('x')}</button></div><p class="sm mut">Найдено в файле. Отметь, что добавить (всё добавляется к существующему):</p>
-  ${found.map((x, i) => `<label class="card row" style="align-items:flex-start;margin-bottom:8px"><input type="checkbox" data-k="${i}" ${x.def && x.count ? 'checked' : ''} ${x.count ? '' : 'disabled'}><div><b>${esc(x.title)}</b> <span class="tag">${x.count}</span><div class="sm mut">${esc(x.desc)}</div></div></label>`).join('')}
+  ${found.map((x, i) => `<label class="card row" style="align-items:flex-start;margin-bottom:8px"><input type="checkbox" data-k="${i}" ${x.positions ? 'data-pos="1"' : ''} ${x.def && x.count ? 'checked' : ''} ${x.count ? '' : 'disabled'}><div><b>${esc(x.title)}</b> <span class="tag">${x.count}</span><div class="sm mut">${esc(x.desc)}</div></div></label>`).join('')}
   <div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn pri" data-x="go">Импортировать</button></div>`, ov => {
+    ov.addEventListener('change', e => { const c = e.target.closest('[data-pos]'); if (c && c.checked) ov.querySelectorAll('[data-pos]').forEach(o => { if (o !== c && o.checked) { o.checked = false; toast('Позиции берутся из одного листа, иначе деньги задвоятся'); } }); });
     ov.addEventListener('click', async e => {
       const b = e.target.closest('[data-x]'); if (!b) return; if (b.dataset.x === 'c') return closeModal();
-      if (b.dataset.x === 'go') { let np = 0, nn = 0, na = 0; ov.querySelectorAll('[data-k]:checked').forEach(c => { const x = found[+c.dataset.k]; if (x.positions) { S.data.positions.push(...x.positions); np += x.positions.length; } if (x.notes) { S.data.notes.push(...x.notes); nn += x.notes.length; } if (x.an) { const A_ = A(); if (x.an.crypto) A_.crypto = x.an.crypto; if (x.an.years) A_.years = x.an.years; if (x.an.banks) A_.banks = x.an.banks; for (const k of ['home', 'cmp', 'tax']) if (x.an[k]) A_[k] = x.an[k]; na++; } }); await persist(); closeModal(); render(); toast(`Добавлено: позиций ${np}, заметок ${nn}` + (na ? `, листов анализа ${na}` : '')); }
+      if (b.dataset.x === 'go') { let np = 0, nn = 0, na = 0; ov.querySelectorAll('[data-k]:checked').forEach(c => { const x = found[+c.dataset.k]; if (x.positions) { S.data.positions.push(...x.positions); np += x.positions.length; } if (x.notes) { const have = new Set(S.data.notes.map(n => n.d + '|' + n.text)); const fresh = x.notes.filter(n => !have.has(n.d + '|' + n.text)); S.data.notes.push(...fresh); nn += fresh.length; } if (x.an) { const A_ = A(); if (x.an.crypto) A_.crypto = x.an.crypto; if (x.an.years) A_.years = x.an.years; if (x.an.banks) A_.banks = x.an.banks; for (const k of ['home', 'cmp', 'tax']) if (x.an[k]) A_[k] = x.an[k]; na++; } }); await persist(); closeModal(); render(); toast(`Добавлено: позиций ${np}, заметок ${nn}` + (na ? `, листов анализа ${na}` : '')); }
     });
   });
 }
