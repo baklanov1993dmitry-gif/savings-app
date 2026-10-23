@@ -435,9 +435,10 @@ function importMovement(ws) {
     if (!history.length && !where && !cond && !open && !close && !comment) continue;
     const m = cond.match(/(\d{1,2}(?:[.,]\d+)?)\s*%/);
     history.sort((a, b) => a.d < b.d ? -1 : 1);
-    /* срок вклада истёк, а нуля в таблице нет — деньги переложены в другую строку: закрываем, иначе сумма считается дважды */
-    if (close && close <= todayISO() && history.length && history[history.length - 1].amt !== 0) { history.push({ d: close > history[history.length - 1].d ? close : addDays(history[history.length - 1].d, 1), amt: 0 }); }
-    out.push({ id: uid(), type: normType(base), where: where || base.trim(), cur: guessCur(raw, where), rate: m ? Number(m[1].replace(',', '.')) : '', cond, open, close, reopen: '', comment, history, archived: history.length > 0 && history[history.length - 1].amt === 0 });
+    /* кандидат «деньги переложены»: в последнем столбце таблицы пусто, а срок вклада уже наступил к дате этого столбца */
+    const lastD = dcols.length ? dcols.map(x => x[1]).sort().pop() : '', ha = history.length ? history[history.length - 1] : null;
+    const cl = ha && ha.amt !== 0 && ha.d < lastD && close && close <= lastD ? (close > ha.d ? close : addDays(ha.d, 1)) : '';
+    out.push({ id: uid(), type: normType(base), where: where || base.trim(), cur: guessCur(raw, where), rate: m ? Number(m[1].replace(',', '.')) : '', cond, open, close, reopen: '', comment, history, archived: history.length > 0 && history[history.length - 1].amt === 0, _cl: cl });
   }
   return out;
 }
@@ -1530,11 +1531,12 @@ async function doXlsx(f) {
   if (!found.length) return toast('Не нашёл знакомых листов («движение средств», «состояние средств», «Мысли»)');
   modal(`<div class="row" style="margin-bottom:8px"><h3 class="grow">Импорт из Excel</h3><button class="ic" data-x="c">${ic('x')}</button></div><p class="sm mut">Найдено в файле. Отметь, что добавить (всё добавляется к существующему):</p>
   ${found.map((x, i) => `<label class="card row" style="align-items:flex-start;margin-bottom:8px"><input type="checkbox" data-k="${i}" ${x.positions ? 'data-pos="1"' : ''} ${x.def && x.count ? 'checked' : ''} ${x.count ? '' : 'disabled'}><div><b>${esc(x.title)}</b> <span class="tag">${x.count}</span><div class="sm mut">${esc(x.desc)}</div></div></label>`).join('')}
+  ${found.some(f => f.positions && f.positions.some(q => q._cl)) ? `<label class="row sm" style="margin-top:6px;align-items:flex-start"><input type="checkbox" id="autocl" checked><span>Закрыть вклады, которые в последнем столбце пустые, а срок уже вышел — деньги переложены в другие строки (иначе посчитаются дважды). Таких: <b>${found.reduce((s, f) => s + (f.positions ? f.positions.filter(q => q._cl).length : 0), 0)}</b></span></label>` : ''}
   <div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn pri" data-x="go">Импортировать</button></div>`, ov => {
     ov.addEventListener('change', e => { const c = e.target.closest('[data-pos]'); if (c && c.checked) ov.querySelectorAll('[data-pos]').forEach(o => { if (o !== c && o.checked) { o.checked = false; toast('Позиции берутся из одного листа, иначе деньги задвоятся'); } }); });
     ov.addEventListener('click', async e => {
       const b = e.target.closest('[data-x]'); if (!b) return; if (b.dataset.x === 'c') return closeModal();
-      if (b.dataset.x === 'go') { let np = 0, nn = 0, na = 0; ov.querySelectorAll('[data-k]:checked').forEach(c => { const x = found[+c.dataset.k]; if (x.positions) { S.data.positions.push(...x.positions); np += x.positions.length; } if (x.notes) { const have = new Set(S.data.notes.map(n => n.d + '|' + n.text)); const fresh = x.notes.filter(n => !have.has(n.d + '|' + n.text)); S.data.notes.push(...fresh); nn += fresh.length; } if (x.an) { const A_ = A(); if (x.an.crypto) A_.crypto = x.an.crypto; if (x.an.years) A_.years = x.an.years; if (x.an.banks) A_.banks = x.an.banks; for (const k of ['home', 'cmp', 'tax']) if (x.an[k]) A_[k] = x.an[k]; na++; } }); await persist(); closeModal(); render(); toast(`Добавлено: позиций ${np}, заметок ${nn}` + (na ? `, листов анализа ${na}` : '')); }
+      if (b.dataset.x === 'go') { let np = 0, nn = 0, na = 0, nclosed = 0; ov.querySelectorAll('[data-k]:checked').forEach(c => { const x = found[+c.dataset.k]; if (x.positions) { const ac = $('#autocl', ov) && $('#autocl', ov).checked; x.positions.forEach(q => { if (q._cl && ac) { q.history.push({ d: q._cl, amt: 0 }); q.archived = true; nclosed++; } delete q._cl; }); S.data.positions.push(...x.positions); np += x.positions.length; } if (x.notes) { const have = new Set(S.data.notes.map(n => n.d + '|' + n.text)); const fresh = x.notes.filter(n => !have.has(n.d + '|' + n.text)); S.data.notes.push(...fresh); nn += fresh.length; } if (x.an) { const A_ = A(); if (x.an.crypto) A_.crypto = x.an.crypto; if (x.an.years) A_.years = x.an.years; if (x.an.banks) A_.banks = x.an.banks; for (const k of ['home', 'cmp', 'tax']) if (x.an[k]) A_[k] = x.an[k]; na++; } }); await persist(); closeModal(); render(); toast(`Добавлено: позиций ${np}, заметок ${nn}` + (na ? `, листов анализа ${na}` : '') + (nclosed ? `; закрыто как переложенные: ${nclosed}` : '')); }
     });
   });
 }
