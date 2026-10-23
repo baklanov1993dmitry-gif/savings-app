@@ -447,16 +447,31 @@ function importState(ws) {
   const S = sheetReader(ws); let hr = -1, dc = -1;
   for (let r = S.r0; r <= Math.min(S.r1, S.r0 + 12) && hr < 0; r++) for (let c = S.c0; c <= S.c1; c++) if (sv(S.get(r, c)).toLowerCase().startsWith('дата/место')) { hr = r; dc = c; break; }
   if (hr < 0) return null;
-  const places = [];
-  for (let c = dc + 1; c <= S.c1; c++) { const t = sv(S.get(hr, c)); if (/^итого/i.test(t)) break; if (t) places.push([c, t]); }
+  const places = [], meta = {};
+  let inPlaces = true;
+  for (let c = dc + 1; c <= S.c1; c++) {
+    const t = sv(S.get(hr, c)), l = t.toLowerCase(); if (!t) continue;
+    if (/^итого/.test(l) || /^общий итог/.test(l)) inPlaces = false;
+    if (inPlaces) places.push([c, t]);
+    else if (l.startsWith('итого рубль')) meta.tRub = c; else if (l.startsWith('итого тенге')) meta.tKzt = c; else if (l.startsWith('итого долл')) meta.tUsd = c; else if (l.startsWith('общий итог')) meta.tAll = c;
+    else if (/курс рубля/.test(l)) meta.fxK = c; else if (/курс доллара к рубл/.test(l)) meta.fxU = c;
+  }
+  /* строки со снимками: берём САМУЮ ПОЗДНЮЮ дату — это и есть «сколько сейчас» */
+  const rows = []; for (let r = hr + 1; r <= S.r1; r++) { const d = S.get(r, dc); if (isSerial(d)) rows.push([r, serialISO(d)]); }
+  if (!rows.length) return null; const lastR = rows.reduce((m, x) => x[1] > m[1] ? x : m, rows[0]);
   const out = [];
   for (const [c, name] of places) {
     const history = [];
-    for (let r = hr + 1; r <= S.r1; r++) { const d = S.get(r, dc), v = S.get(r, c); if (isSerial(d) && typeof v === 'number') history.push({ d: serialISO(d), amt: v }); }
-    if (!history.length) continue;
+    for (const [r, d] of rows) { const v = S.get(r, c); if (typeof v === 'number') history.push({ d, amt: v }); }
+    if (!history.length) continue; history.sort((x, y) => x.d < y.d ? -1 : 1);
+    const nowV = S.get(lastR[0], c); if (typeof nowV !== 'number' && history[history.length - 1].d < lastR[1]) history.push({ d: lastR[1], amt: 0 });
     const type = /инвест|джетленд|реголит/i.test(name) ? 'Инвестиции' : /exmo|trust|bybit/i.test(name) ? 'Крипта' : /заначка/i.test(name) ? 'Наличные' : /кз_/i.test(name) ? 'Банковский вклад' : 'Счёт / карта';
-    out.push({ id: uid(), type, where: name.replace(/\s+/g, ' '), cur: /заначка/i.test(name) ? 'RUB' : guessCur(name, type), rate: '', cond: '', open: '', close: '', reopen: '', comment: '', history, archived: history[history.length - 1].amt === 0 });
+    const cur = /^кз_/i.test(name) ? 'KZT' : /exmo|trust|bybit|реголит/i.test(name) ? 'USD' : 'RUB';
+    out.push({ id: uid(), type, where: name.replace(/\s+/g, ' '), cur, rate: '', cond: '', open: '', close: '', reopen: '', comment: '', history, archived: history[history.length - 1].amt === 0 || /реголит/i.test(name), ...(/реголит/i.test(name) ? { comment: 'Не входит в итог твоей таблицы — поэтому в архиве. Верни, если хочешь считать.' } : {}) });
   }
+  const num = c => c != null && typeof S.get(lastR[0], c) === 'number' ? S.get(lastR[0], c) : null;
+  const fxK = num(meta.fxK), fxU = num(meta.fxU);
+  out.meta = { date: lastR[1], rates: { KZT: fxK ? +(1 / fxK).toFixed(4) : null, USD: fxU || null }, sheetTotal: num(meta.tAll) };
   return out;
 }
 
@@ -481,6 +496,25 @@ function parseWorkbook(buf) {
     else if (n.includes('банков')) { const b = importBanks(ws); if (b) found.push({ key: name, title: name, desc: 'снимки ставок банков по датам → «Анализ → Банки»', count: b.length, an: { banks: b }, def: true }); }
     else if (n.includes('мысли')) { const nt = importThoughts(ws); found.push({ key: name, title: name, desc: 'заметки с датами → раздел «Заметки»', count: nt.length, notes: nt, def: true }); }
   }
+  /* «состояние средств» = сколько где лежит (главный источник); «движение средств» = справочник условий, подтягиваем по названию места */
+  const st = found.find(f => f.key.toLowerCase().includes('состояние')), mv = found.find(f => f.key.toLowerCase().includes('движение'));
+  if (st) {
+    st.def = true; const meta = st.positions.meta || {}; const rt = { KZT: meta.rates && meta.rates.KZT || 0.16, USD: meta.rates && meta.rates.USD || 82 };
+    if (mv) {
+      const norm = s => String(s).toLowerCase().replace(/\(.*?\)/g, '').replace(/^кз_/, '').replace(/[^a-zа-яё0-9]+/g, ' ').trim();
+      let hit = 0;
+      for (const p of st.positions) {
+        const k = norm(p.where); if (k.length < 3) continue;
+        const ms = mv.positions.filter(m => { const w = norm(m.where); return w && (w.includes(k) || k.includes(w)); }).sort((a, b) => (a.open || '') < (b.open || '') ? -1 : 1);
+        const m = ms[ms.length - 1]; if (!m) continue; hit++;
+        p.cond = m.cond; p.rate = m.rate; p.open = m.open; p.close = m.close; p.comment = m.comment;
+      }
+      mv.def = false; mv.desc = 'справочник переложений: условия и даты из него уже подтянуты к позициям «состояния» (' + hit + ' совпало). Отмечать вместе с «состоянием» нельзя — деньги задвоятся';
+    }
+    const app = st.positions.filter(p => !p.archived).reduce((s, p) => s + p.history[p.history.length - 1].amt * (p.cur === 'KZT' ? rt.KZT : p.cur === 'USD' ? rt.USD : 1), 0);
+    st.meta = meta; st.desc = `сколько где лежит на ${meta.date ? fmtDate(meta.date) : 'последнюю дату'}. В приложении: ${Math.round(app).toLocaleString('ru-RU')} ₽` + (meta.sheetTotal ? `, в твоей таблице «общий итог»: ${Math.round(meta.sheetTotal).toLocaleString('ru-RU')} ₽` : '');
+  } else if (mv) mv.def = true;
+  for (const f of found) if (f.positions) f.positions.forEach(p => { if (f.key !== (mv && mv.key)) delete p._cl; });
   return found;
 }
 
@@ -1536,7 +1570,7 @@ async function doXlsx(f) {
     ov.addEventListener('change', e => { const c = e.target.closest('[data-pos]'); if (c && c.checked) ov.querySelectorAll('[data-pos]').forEach(o => { if (o !== c && o.checked) { o.checked = false; toast('Позиции берутся из одного листа, иначе деньги задвоятся'); } }); });
     ov.addEventListener('click', async e => {
       const b = e.target.closest('[data-x]'); if (!b) return; if (b.dataset.x === 'c') return closeModal();
-      if (b.dataset.x === 'go') { let np = 0, nn = 0, na = 0, nclosed = 0; ov.querySelectorAll('[data-k]:checked').forEach(c => { const x = found[+c.dataset.k]; if (x.positions) { const ac = $('#autocl', ov) && $('#autocl', ov).checked; x.positions.forEach(q => { if (q._cl && ac) { q.history.push({ d: q._cl, amt: 0 }); q.archived = true; nclosed++; } delete q._cl; }); S.data.positions.push(...x.positions); np += x.positions.length; } if (x.notes) { const have = new Set(S.data.notes.map(n => n.d + '|' + n.text)); const fresh = x.notes.filter(n => !have.has(n.d + '|' + n.text)); S.data.notes.push(...fresh); nn += fresh.length; } if (x.an) { const A_ = A(); if (x.an.crypto) A_.crypto = x.an.crypto; if (x.an.years) A_.years = x.an.years; if (x.an.banks) A_.banks = x.an.banks; for (const k of ['home', 'cmp', 'tax']) if (x.an[k]) A_[k] = x.an[k]; na++; } }); await persist(); closeModal(); render(); toast(`Добавлено: позиций ${np}, заметок ${nn}` + (na ? `, листов анализа ${na}` : '') + (nclosed ? `; закрыто как переложенные: ${nclosed}` : '')); }
+      if (b.dataset.x === 'go') { let np = 0, nn = 0, na = 0, nclosed = 0; ov.querySelectorAll('[data-k]:checked').forEach(c => { const x = found[+c.dataset.k]; if (x.positions) { const ac = $('#autocl', ov) && $('#autocl', ov).checked; x.positions.forEach(q => { if (q._cl && ac) { q.history.push({ d: q._cl, amt: 0 }); q.archived = true; nclosed++; } delete q._cl; }); S.data.positions.push(...x.positions); np += x.positions.length; if (x.meta && x.meta.rates) { if (x.meta.rates.KZT) S.data.settings.rates.KZT = x.meta.rates.KZT; if (x.meta.rates.USD) S.data.settings.rates.USD = x.meta.rates.USD; } } if (x.notes) { const have = new Set(S.data.notes.map(n => n.d + '|' + n.text)); const fresh = x.notes.filter(n => !have.has(n.d + '|' + n.text)); S.data.notes.push(...fresh); nn += fresh.length; } if (x.an) { const A_ = A(); if (x.an.crypto) A_.crypto = x.an.crypto; if (x.an.years) A_.years = x.an.years; if (x.an.banks) A_.banks = x.an.banks; for (const k of ['home', 'cmp', 'tax']) if (x.an[k]) A_[k] = x.an[k]; na++; } }); await persist(); closeModal(); render(); toast(`Добавлено: позиций ${np}, заметок ${nn}` + (na ? `, листов анализа ${na}` : '') + (nclosed ? `; закрыто как переложенные: ${nclosed}` : '')); }
     });
   });
 }
