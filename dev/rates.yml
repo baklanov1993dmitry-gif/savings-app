@@ -1,0 +1,23 @@
+name: rates
+on:
+  schedule:
+    - cron: '17 3 * * *'   # каждый день в 10:17 по Новосибирску
+  workflow_dispatch:
+  push:
+    paths: ['robot/rates.mjs', '.github/workflows/rates.yml']
+permissions:
+  contents: write
+concurrency: rates
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: node robot/rates.mjs
+      - run: |
+          git config user.name "rates-robot"
+          git config user.email "rates-robot@users.noreply.github.com"
+          git add rates.json
+          git diff --cached --quiet || (git commit -m "rates: $(date -u +%F)" && git pull --rebase && git push)
