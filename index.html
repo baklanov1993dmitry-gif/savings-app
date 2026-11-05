@@ -247,6 +247,42 @@ kbd{border:1px solid var(--line);border-radius:6px;padding:0 6px;font:11px ui-mo
 .bd .up{color:var(--acc)}.bd .dn{color:var(--bad)}
 
 .bd .bd-r1,.bd .bd-r2{position:sticky;background:var(--card)!important;z-index:1;min-width:96px}.bd .bd-r1{right:0}.bd .bd-r2{right:96px;border-left:1px solid var(--line)}.bd thead .bd-r1,.bd thead .bd-r2{z-index:4;top:0}
+/* главная v5 — по макету */
+.hero2{position:relative;overflow:hidden;padding:20px;background:radial-gradient(120% 140% at 100% 0,color-mix(in srgb,var(--acc) 20%,var(--card)) 0,var(--card) 58%);border:1px solid color-mix(in srgb,var(--acc) 28%,var(--line))}
+.h-top{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:18px;align-items:end;margin-bottom:16px}
+.eyebrow{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);font-weight:600}
+.gnum{font-size:46px;font-weight:800;letter-spacing:-.025em;line-height:1.08;margin:6px 0 8px;background:linear-gradient(90deg,var(--acc),var(--c2));-webkit-background-clip:text;background-clip:text;color:transparent;white-space:nowrap}
+.hero2 .up{color:var(--acc)}.hero2 .dn{color:var(--bad)}
+.h-chart{position:relative;height:96px}
+.h-area{width:100%;height:96px;display:block}
+.h-dot{position:absolute;width:10px;height:10px;border-radius:50%;background:var(--acc);box-shadow:0 0 0 4px color-mix(in srgb,var(--acc) 25%,transparent);transform:translate(-50%,-50%)}
+.ctiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.ctile{--cc:var(--acc);border-radius:16px;padding:14px 14px 8px;display:flex;flex-direction:column;gap:2px;min-width:0;border:1px solid color-mix(in srgb,var(--cc) 30%,transparent);background:radial-gradient(130% 130% at 0 0,color-mix(in srgb,var(--cc) 34%,var(--card)) 0,color-mix(in srgb,var(--cc) 6%,var(--card)) 62%)}
+.ct-RUB{--cc:var(--cc-RUB)}.ct-KZT{--cc:var(--cc-KZT)}.ct-USD{--cc:var(--cc-USD)}
+.ct-n{font-size:12.5px;color:var(--mut);font-weight:600}.ct-s{font-size:12px;font-weight:700;color:var(--cc);background:color-mix(in srgb,var(--cc) 16%,transparent);padding:2px 8px;border-radius:99px}
+.ct-v{font-size:25px;font-weight:800;letter-spacing:-.015em;margin:4px 0 2px;white-space:nowrap}
+.ct-m{color:var(--mut)}.ctile .up{color:var(--acc)}.ctile .dn{color:var(--bad)}
+.ctile .spark{height:30px;margin-top:6px}
+.act{display:flex;gap:10px;align-items:flex-start;border-radius:12px;padding:11px 12px;font-size:13px;cursor:pointer;border:1px solid var(--line);background:var(--card2);transition:transform .15s}
+.act:hover{transform:translateY(-1px)}
+.act-e{font-size:16px;line-height:1.2}
+.act-r{background:color-mix(in srgb,var(--bad) 11%,var(--card));border-color:color-mix(in srgb,var(--bad) 38%,transparent)}
+.act-a{background:color-mix(in srgb,var(--warn) 10%,var(--card));border-color:color-mix(in srgb,var(--warn) 36%,transparent)}
+.act-g{background:color-mix(in srgb,var(--acc) 9%,var(--card));border-color:color-mix(in srgb,var(--acc) 32%,transparent)}
+.ygbar{display:flex;gap:3px;height:22px}.ygbar div{border-radius:6px;min-width:6px}
+.lgd{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px}
+.hm-grid{align-items:start}
+@media (max-width:760px){.h-top{grid-template-columns:1fr}.gnum{font-size:38px}.h-chart,.h-area{height:80px}}
+@media (prefers-reduced-motion:reduce){.act{transition:none}}
+/* панель: на всю высоту */
+.bd-w{max-height:calc(100vh - 230px);min-height:calc(100vh - 230px)}
+.bd thead .bd-cur{font-size:12.5px;color:var(--cc);border-bottom:3px solid var(--cc);background:color-mix(in srgb,var(--cc) 8%,var(--card))}
+.bd thead th.bd-h{max-width:120px;overflow:hidden;text-overflow:ellipsis}
+.bd th,.bd td{padding:7px 8px}.bd thead th.bd-h{max-width:98px}
+.bdjump{--cc:var(--acc);border:1px solid color-mix(in srgb,var(--cc) 40%,transparent);background:color-mix(in srgb,var(--cc) 12%,var(--card));color:var(--tx);padding:5px 12px;border-radius:99px;font-size:12.5px;cursor:pointer}
+.bdjump.cc-RUB{--cc:var(--cc-RUB)}.bdjump.cc-KZT{--cc:var(--cc-KZT)}.bdjump.cc-USD{--cc:var(--cc-USD)}
+@media (max-width:760px){.ctiles{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.ctile{padding:10px 9px 6px;border-radius:13px}.ct-v{font-size:16px}.ct-n{font-size:11px}.ct-s{font-size:10.5px;padding:1px 6px}.ct-m{font-size:11px;line-height:1.35}.ctile .spark{height:22px}.bd-w{min-height:0;max-height:calc(100vh - 300px)}}
+.hide .gnum.money{background:none!important;-webkit-text-fill-color:transparent}.hide .gnum.money.rv{background:linear-gradient(90deg,var(--acc),var(--c2))!important;-webkit-background-clip:text!important;background-clip:text!important}
 
 </style>
 </head>
@@ -1263,6 +1299,7 @@ function guessCap(p) {
 
 </script>
 <script>
+const MW = h => String(h).replace(/[+−-]?\d[\d\s\u00a0\u202f,.]*\s?(?:млн|тыс)?\s?[₽₸$]/g, m => `<span class="money">${m}</span>`);
 /* ===== умный обзор: почему изменилось, что сделать, риски ===== */
 const DEP_T = /вклад|счёт|счет|карта|копилк/i, NOPCT_T = /крипт|инвест|налич|кра?удленд/i;
 function snapDates() { return [...new Set(S.data.positions.flatMap(p => p.history.map(h => h.d)))].sort(); }
@@ -1289,13 +1326,27 @@ function todoList() {
   for (const p of act()) {
     const a = lastAmt(p); if (!(a > 0)) continue;
     if (p.close) { const n = daysTo(p.close); if (n >= -7 && n <= 21) { const po = payoutOf(p), bo = bestOffers(p.cur);
-      L.push({ w: 100 - n, ic: 'cal', t: `<b>${esc(p.where)}</b> — ${n < 0 ? `срок вышел ${-n} дн. назад` : n === 0 ? 'забрать сегодня' : `забрать через ${n} дн. (${fmtDate(p.close)})`}${po ? `, к выплате ≈ ${fmt(po.total, p.cur)}` : ''}.${bo.length ? `<div class="sm mut">Куда переложить по твоей таблице: ${bo.map(x => esc(x.t)).join('; ')}</div>` : ''}`, a: p.id }); } }
-    if (p.reopen) { const n = daysTo(p.reopen); if (n >= 0 && n <= 14) L.push({ w: 60, ic: 'cal', t: `<b>${esc(p.where)}</b> — с ${fmtDate(p.reopen)} снова можно открыть с приветственной ставкой.`, a: p.id }); }
-    if (p.limit && a > p.limit) L.push({ w: 70, ic: 'x', t: `<b>${esc(p.where)}</b> — сумма выше лимита ставки на ${fmt(a - p.limit, p.cur)}${p.rateOver !== '' && p.rateOver != null ? ` (на излишек всего ${p.rateOver}%)` : ''}.`, a: p.id });
-    if (!p.rate && !NOPCT_T.test(p.type) && p.cur !== 'USD') { const rub = a * rateOf(p.cur); if (rub >= 30000) { const bo = bestOffers(p.cur), best = bo[0] ? bo[0].v : keyR; L.push({ w: 50 + Math.min(40, rub / 1e5), ic: 'x', t: `<b>${esc(p.where)}</b> — ${fmt(a, p.cur)} лежат без процентов${best ? `: под ${String(best).replace('.', ',')}% это ≈ +${fmt(a * best / 100 / 12, p.cur)} в месяц` : ''}. Если ставка есть — впиши её в позицию.`, a: p.id }); } }
-    else if (p.rate && !p.cap && DEP_T.test(p.type)) L.push({ w: 20, ic: 'gear', t: `<b>${esc(p.where)}</b> — укажи, как начисляются проценты (капитализация / в конце срока), тогда автоснимки будут точными.`, a: p.id });
+      L.push({ w: 100 - n, sev: 'r', e: '⏰', ic: 'cal', t: `<b>${esc(p.where)}</b> — ${n < 0 ? `срок вышел ${-n} дн. назад` : n === 0 ? 'забрать сегодня' : `забрать через ${n} дн. (${fmtDate(p.close)})`}${po ? `, к выплате ≈ ${fmt(po.total, p.cur)}` : ''}.${bo.length ? `<div class="sm mut">Куда переложить по твоей таблице: ${bo.map(x => esc(x.t)).join('; ')}</div>` : ''}`, a: p.id }); } }
+    if (p.reopen) { const n = daysTo(p.reopen); if (n >= 0 && n <= 14) L.push({ w: 60, sev: 'g', e: '🔁', ic: 'cal', t: `<b>${esc(p.where)}</b> — с ${fmtDate(p.reopen)} снова можно открыть с приветственной ставкой.`, a: p.id }); }
+    if (p.limit && a > p.limit) L.push({ w: 70, sev: 'a', e: '⚠️', ic: 'x', t: `<b>${esc(p.where)}</b> — сумма выше лимита ставки на ${fmt(a - p.limit, p.cur)}${p.rateOver !== '' && p.rateOver != null ? ` (на излишек всего ${p.rateOver}%)` : ''}.`, a: p.id });
+    if (!p.rate && !NOPCT_T.test(p.type) && p.cur !== 'USD') { const rub = a * rateOf(p.cur); if (rub >= 30000) { const bo = bestOffers(p.cur), best = bo[0] ? bo[0].v : keyR; L.push({ w: 50 + Math.min(40, rub / 1e5), sev: 'a', e: '💤', ic: 'x', t: `<b>${esc(p.where)}</b> — ${fmt(a, p.cur)} лежат без процентов${best ? `: под ${String(best).replace('.', ',')}% это ≈ +${fmt(a * best / 100 / 12, p.cur)} в месяц` : ''}. Если ставка есть — впиши её в позицию.`, a: p.id }); } }
+    else if (p.rate && !p.cap && DEP_T.test(p.type)) L.push({ w: 20, sev: 'n', e: '⚙️', ic: 'gear', t: `<b>${esc(p.where)}</b> — укажи, как начисляются проценты (капитализация / в конце срока), тогда автоснимки будут точными.`, a: p.id });
   }
+  const pd = FX.pending(); if (pd.length) L.push({ w: 95, sev: 'g', e: '✅', t: `<b>Автоснимок на ${fmtDate(pd[pd.length - 1])} готов</b><div class="sm mut">суммы посчитаны по условиям — сверь с банками, займёт минуту${pd.length > 1 ? ` (снимков: ${pd.length})` : ''}</div>`, snap: pd[pd.length - 1] });
   return L.sort((x, y) => y.w - x.w);
+}
+/** разложить изменение капитала между двумя датами */
+function decomp(d1, d2) {
+  let fx = 0, pct = 0, dl = 0;
+  for (const p of inTot()) { const a1 = lastAmt(p, d1), a2 = lastAmt(p, d2), r1 = rateOf(p.cur, d1), r2 = rateOf(p.cur, d2); dl += a2 * r2 - a1 * r1; fx += a1 * (r2 - r1); if (p.rate && p.cap && a1 > 0) pct += Math.min(incomeOf(p, d1, a1, d2), Math.max(0, a2 - a1 + incomeOf(p, d1, a1, d2))) * r2; }
+  return { dl, fx, pct, other: dl - fx - pct };
+}
+/** откуда прирост за 12 месяцев: сумма по соседним снимкам */
+function yearGrowth() {
+  const ds = snapDates(), T = todayISO(); if (ds.length < 2) return null; const end = ds[ds.length - 1], from = addDays(end, -365);
+  let st = ds.filter(d => d <= from).pop() || ds[0]; const pts = ds.filter(d => d >= st);
+  const s = { dl: 0, fx: 0, pct: 0, other: 0 }; for (let k = 1; k < pts.length; k++) { const r = decomp(pts[k - 1], pts[k]); for (const x in s) s[x] += r[x]; }
+  return { ...s, from: st, to: end, base: totalAt(st) };
 }
 function taxInfo() {
   const T = todayISO(), y = T.slice(0, 4), j1 = y + '-01-01', d31 = y + '-12-31', key = FX.keys().key || A().tax.key || 0; let inc = 0;
@@ -1332,7 +1383,14 @@ function insightCards() {
     ${rk.cur[1][1] > 40 ? `<div class="sm" style="margin-bottom:6px">${rk.cur[1][1].toFixed(0)}% в тенге: ослабление тенге на 5% ≈ −${fmt(totals().rub * rk.cur[1][1] / 100 * 0.05, 'RUB')}.</div>` : ''}
     ${rk.crypto > 0 ? `<div class="sm mut" style="margin-bottom:6px">Крипта — ${rk.crypto.toFixed(1)}% капитала.</div>` : ''}
     ${tx.free ? `<div style="margin-top:10px"><div class="row sm"><span class="grow">Налог с % по вкладам РФ за ${tx.y} (оценка)</span><b class="money">${fmt(tx.inc, 'RUB')} из ${fmt(tx.free, 'RUB')}</b></div><div style="height:8px;background:var(--line);border-radius:4px;margin-top:6px;overflow:hidden"><div style="height:100%;width:${tp}%;background:var(--${tp >= 100 ? 'bad' : tp > 80 ? 'warn' : 'acc'})"></div></div><div class="sm mut" style="margin-top:4px">Без налога — до 1 млн × ключевая ставка (${String(tx.key).replace('.', ',')}%). ${tx.inc > tx.free ? `С превышения ≈ ${fmt((tx.inc - tx.free) * 0.13, 'RUB')} НДФЛ (13%).` : `Запас ≈ ${fmt(tx.free - tx.inc, 'RUB')}.`} Оценка, не налоговая консультация.</div></div>` : ''}</div>`;
-  return fxChips() + `<div class="grid g2" style="margin-bottom:14px">${why || ''}${td}</div><div style="margin-bottom:14px">${risk}</div>`;
+  const yg = yearGrowth(); let ygc = '';
+  if (yg) { const parts = [['pct', 'проценты', 'var(--cc-RUB)'], ['fx', 'курсы', 'var(--cc-KZT)'], ['other', 'пополнения и рынок', 'var(--cc-USD)']], pos = parts.filter(([k]) => yg[k] > 0), sp = pos.reduce((s, [k]) => s + yg[k], 0) || 1;
+    ygc = `<div class="card"><div class="row" style="margin-bottom:6px"><h3 class="grow">Откуда прирост за год</h3><span class="sm mut">${fmtDate(yg.from)} → ${fmtDate(yg.to)}</span></div>
+    <div class="row" style="align-items:baseline;gap:10px;margin-bottom:10px"><b class="money" style="font-size:24px;color:var(--${yg.dl >= 0 ? 'acc' : 'bad'})">${yg.dl >= 0 ? '+' : '−'}${short(Math.abs(yg.dl))} ₽</b>${yg.base > 0 ? `<span class="sm mut">${yg.dl >= 0 ? '+' : ''}${(yg.dl / yg.base * 100).toFixed(0)}% за год</span>` : ''}</div>
+    <div class="ygbar">${pos.map(([k, l, c]) => `<div style="flex:${yg[k] / sp};background:${c}" title="${l}"></div>`).join('')}</div>
+    <div class="row wrap sm" style="gap:14px;margin-top:8px">${parts.map(([k, l, c]) => `<span><i class="lgd" style="background:${yg[k] >= 0 ? c : 'var(--bad)'}"></i>${l} <b class="money" style="color:${yg[k] >= 0 ? 'var(--tx)' : 'var(--bad)'}">${yg[k] >= 0 ? '+' : '−'}${short(Math.abs(yg[k]))}</b></span>`).join('')}</div></div>`; }
+  const td2 = `<div class="card"><div class="row" style="margin-bottom:10px"><h3 class="grow">Что сделать</h3>${todo.length ? `<span class="tag">${todo.length}</span>` : ''}</div><div class="col" style="gap:8px">${todo.length ? todo.slice(0, S.tdAll ? 50 : 6).map(x => `<div class="act act-${x.sev || 'n'}" ${x.snap ? `data-a="snap" data-id="${x.snap}"` : `data-a="editPos" data-id="${x.a}"`}><span class="act-e">${x.e || '•'}</span><div class="grow">${MW(x.t)}</div></div>`).join('') + (todo.length > 6 && !S.tdAll ? `<button class="btn sm" data-a="tdall">Ещё ${todo.length - 6}</button>` : '') : '<div class="act act-g"><span class="act-e">✅</span><div class="grow"><b>Всё в порядке</b><div class="sm mut">ничего не закрывается в ближайшие 3 недели, деньги работают</div></div></div>'}</div></div>`;
+  return `<div class="grid g2 hm-grid" style="margin-bottom:14px">${td2}<div class="col" style="gap:14px">${ygc}${why || ''}</div></div><div style="margin-bottom:14px">${risk}</div>`;
 }
 
 </script>
@@ -1346,7 +1404,7 @@ const BCN = { RUB: 'Рубли', KZT: 'Тенге', USD: 'Доллары' };
 const bankOf = p => (p.bank && p.bank.trim()) || (p.where || '').split(/\s+[·|\-–—\/]\s+/)[0].trim() || p.where;
 
 function boardModel() {
-  const per = S.bper === undefined ? 6 : S.bper, grp = S.bgrp || 'bank', hz = S.bzero !== false;
+  const per = S.bper === undefined ? 12 : S.bper, grp = S.bgrp || 'bank', hz = S.bzero !== false;
   const all = [...new Set(S.data.positions.flatMap(p => p.history.map(h => h.d)))].sort().reverse();
   const cut = per ? addDays(todayISO(), -per * 30) : '';
   let ds = all.filter(d => d >= cut); if (ds.length < 2) ds = all.slice(0, 12);
@@ -1365,7 +1423,7 @@ const bSum = (ps, d) => ps.reduce((s, p) => s + lastAmt(p, d), 0);
 
 function viewBoard() {
   if (!S.data.positions.length) return '<div class="card empty">Пока пусто — импортируй Excel или добавь позиции.</div>';
-  const M = boardModel(), { ds, all, grp, curs } = M, mode = S.bmode || 'sum', heat = !!S.bheat, fold = S.bfold || {}, per = S.bper === undefined ? 6 : S.bper;
+  const M = boardModel(), { ds, all, grp, curs } = M, mode = S.bmode || 'sum', heat = !!S.bheat, fold = S.bfold || {}, per = S.bper === undefined ? 12 : S.bper;
   const tc = {}, tot = d => tc[d] ?? (tc[d] = curs.reduce((s, x) => s + bSum(x.ps, d) * rateOf(x.c, d), 0));
   const prevOf = d => all[all.indexOf(d) + 1];
   const val = (ps, c, d) => { const r = rateOf(c, d), v = bSum(ps, d);
@@ -1381,7 +1439,7 @@ function viewBoard() {
     let a = '', tt = '';
     if (ps.length === 1 && !sub) { const h = ps[0].history.find(x => x.d === d); if (h && h.est) cls += ' est'; else if (!h && v) cls += ' carry'; if (mode === 'sum') { a = ` data-a="bcell" data-id="${ps[0].id}" data-d="${d}"`; tt = h ? (h.est ? 'расчёт приложения — нажми, чтобы поправить' : 'введено') : 'без изменений с прошлого снимка'; } }
     return `<td class="${cls}"${st}${a}${tt ? ` title="${tt}"` : ''}><span class="money">${fv(v)}</span></td>`; };
-  const head1 = curs.map(x => { const f = fold[x.c] || !x.cols.length; return `<th class="bd-cur cc-${x.c}" colspan="${f ? 1 : x.cols.length + 1}" data-a="bfold" data-id="${x.c}" title="свернуть / развернуть">${SYM[x.c]} ${BCN[x.c]} ${x.cols.length ? (fold[x.c] ? '▸' : '▾') : ''}</th>`; }).join('');
+  const head1 = curs.map(x => { const f = fold[x.c] || !x.cols.length; return `<th id="bdc-${x.c}" class="bd-cur cc-${x.c}" colspan="${f ? 1 : x.cols.length + 1}" data-a="bfold" data-id="${x.c}" title="свернуть / развернуть">${SYM[x.c]} ${BCN[x.c]} ${x.cols.length ? (fold[x.c] ? '▸' : '▾') : ''}</th>`; }).join('');
   const head2 = curs.map(x => (fold[x.c] || !x.cols.length ? '' : x.cols.map(g => `<th class="bd-h cc-${x.c}"${g.ps.length > 1 || grp === 'type' ? ` data-a="bgroup" data-id="${esc(g.k)}" data-c="${x.c}"` : ` data-a="editPos" data-id="${g.ps[0].id}"`} title="${esc(g.label)}${g.ps.length > 1 ? ' · мест: ' + g.ps.length : ''}">${esc(g.label.length > 13 ? g.label.slice(0, 12) + '…' : g.label)}</th>`).join('')) + `<th class="bd-h bd-s cc-${x.c}">Σ ${SYM[x.c]}</th>`).join('');
   const rows = ds.map(d => { const t = tot(d), q = prevOf(d), dl = q ? t - tot(q) : null, est = S.data.positions.some(p => p.history.some(h => h.d === d && h.est));
     const body = curs.map(x => (fold[x.c] || !x.cols.length ? '' : x.cols.map(g => cell(g.ps, x.c, d, false)).join('')) + cell(x.ps, x.c, d, true)).join('');
@@ -1395,7 +1453,7 @@ function viewBoard() {
     <button class="bdpill ${M.hz ? 'on' : ''}" data-a="bzero">${M.hz ? '✓ ' : ''}Скрыть нулевые</button>${seg(BPER, 'bper', per)}</div>
     <div class="row wrap" style="gap:8px"><button class="bdpill ${heat ? 'on' : ''}" data-a="bheat">🔥 Тепловая карта</button><div class="grow"></div><button class="btn sm" data-a="newPos">+ Место</button><button class="btn sm pri" data-a="snap">+ Снимок</button></div>
     <div class="row wrap" style="gap:8px"><span class="bdchip">Итог <b class="money">${nf.format(Math.round(tot(d0)))} ₽</b></span><span class="bdchip">Δ за период <b class="${dper >= 0 ? 'up' : 'dn'} money">${dper >= 0 ? '+' : '−'}${short(Math.abs(dper))}</b></span>${best ? `<span class="bdchip">Лучший рост: <b>${esc(best.n)} ${best.g >= 0 ? '+' : ''}${best.g.toFixed(0)}%</b></span>` : ''}<span class="bdchip">Мест с деньгами: <b>${nowN} из ${M.base.length}</b></span></div></div>
-  <div class="card bd-card"><div class="bd-w"><table class="bd"><thead><tr><th class="bd-d" rowspan="2">Дата</th>${head1}<th class="bd-h bd-t bd-r2" rowspan="2">Итог ₽</th><th class="bd-h bd-r1" rowspan="2">Δ</th></tr><tr>${head2}</tr></thead><tbody>${rows}</tbody></table></div></div>
+  <div class="row wrap" style="gap:6px;margin-bottom:8px"><span class="sm mut">Перейти:</span>${curs.map(x => `<button class="bdjump cc-${x.c}" data-a="bjump" data-id="${x.c}">${SYM[x.c]} ${BCN[x.c]} · <b class="money">${short(bSum(x.ps, ds[0]))}</b></button>`).join('')}</div><div class="card bd-card"><div class="bd-w"><table class="bd"><thead><tr><th class="bd-d" rowspan="2">Дата</th>${head1}<th class="bd-h bd-t bd-r2" rowspan="2">Итог ₽</th><th class="bd-h bd-r1" rowspan="2">Δ</th></tr><tr>${head2}</tr></thead><tbody>${rows}</tbody></table></div></div>
   <div class="sm mut" style="margin-top:10px">${M.hz ? `Нулевые места скрыты (${M.base.length - M.vis.length}) · ` : ''}клик по валюте ▾ — свернуть до одной суммы · клик по ячейке — правка · клик по названию — открыть место или группу · <i class="est">≈</i> — расчёт приложения, бледным — без изменений с прошлого снимка · банк места задаётся в карточке места</div>`;
 }
 
@@ -1698,7 +1756,7 @@ function render() {
     ${TABS.map(([k, t, i]) => `<button class="nv ${S.tab === k ? 'on' : ''}" data-a="tab" data-id="${k}">${ic(i)}${t}${k === 'dates' && urgent ? `<span class="tag bad" style="margin-left:auto">${urgent}</span>` : ''}</button>`).join('')}
     <div class="grow"></div><button class="nv" data-a="palette">${ic('search')}Поиск <kbd style="margin-left:auto">Ctrl K</kbd></button></aside>
     <main class="main ${full ? 'fresh' : ''} ${S.tab === 'board' ? 'wide' : ''}">${S.memOnly ? '<div class="banner">Хранилище браузера недоступно — данные живут только до закрытия вкладки. Сделай экспорт копии в Настройках.</div>' : ''}
-    <div class="top"><h1>${TITLES[S.tab]}</h1><span class="tag" title="версия приложения">v4.4 · 05.11</span>
+    <div class="top"><h1>${TITLES[S.tab]}</h1><span class="tag" title="версия приложения">v4.5 · 05.11</span>
       <button class="ic" data-a="palette" title="Поиск и команды (Ctrl+K)">${ic('search')}</button>
       <button class="ic" data-a="hide" title="Скрыть суммы">${ic(d.settings.hide ? 'eyeoff' : 'eye')}</button>
       <button class="ic" data-a="lock" title="Заблокировать">${ic('lock')}</button></div>
@@ -1713,15 +1771,24 @@ function viewHome() {
   const d = S.data;
   if (!d.positions.length) return `<div class="card empty"><h2>Пока пусто</h2><p>Добавь первую позицию, импортируй свой Excel или загрузи демо-данные.</p><div class="row wrap" style="justify-content:center"><button class="btn pri" data-a="newPos">${ic('plus')}Добавить позицию</button><button class="btn" data-a="xlsx">${ic('xls')}Импорт из Excel</button><button class="btn" data-a="demo">Демо-данные</button></div></div>`;
   const T = todayISO(), t = totals(), now = t.rub, prev = totalAt(addDays(T, -30)), dl = prev > 0 ? (now - prev) / prev * 100 : null;
-  const dchip = v => `<span class="dl ${v >= 0 ? 'up' : 'dn'}">${v >= 0 ? '▲' : '▼'} ${Math.abs(v).toFixed(1).replace('.', ',')}%</span>`;
+  const ds = [...new Set(d.positions.flatMap(p => p.history.map(h => h.d)))].sort(), dLast = ds[ds.length - 1] || T, dPrev = ds[ds.length - 2];
+  const dS = dPrev ? now - totalAt(dPrev) : null, yAgo = totalAt(addDays(dLast, -365)), dY = yAgo > 0 ? now - yAgo : null;
+  const sgn = v => (v >= 0 ? '+' : '−') + short(Math.abs(v));
+  const hs = series().slice(-26), hv = hs.map(x => x.v);
+  const area = (() => { if (hv.length < 2) return ''; const W = 600, H = 96, mn = Math.min(...hv) * 0.985, mx = Math.max(...hv), X = k => k / (hv.length - 1) * W, Y = v => H - 6 - (v - mn) / ((mx - mn) || 1) * (H - 16);
+    const pth = hv.map((v, k) => (k ? 'L' : 'M') + X(k).toFixed(1) + ' ' + Y(v).toFixed(1)).join(''), lx = X(hv.length - 1), ly = Y(hv[hv.length - 1]);
+    return `<svg class="h-area" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><defs><linearGradient id="hag" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="var(--acc)" stop-opacity=".5"/><stop offset="1" stop-color="var(--acc)" stop-opacity="0"/></linearGradient></defs><path d="${pth}L${W} ${H}L0 ${H}Z" fill="url(#hag)"/><path d="${pth}" fill="none" stroke="var(--acc)" stroke-width="2.5" vector-effect="non-scaling-stroke" stroke-linejoin="round"/></svg><span class="h-dot" style="left:${lx / W * 100}%;top:${ly / H * 100}%"></span>`; })();
+  const CN = { RUB: ['₽', 'Рубли'], KZT: ['₸', 'Тенге'], USD: ['$', 'Доллары'] };
   const kpi = ['RUB', 'KZT', 'USD'].filter(c => t.by[c]).map(c => {
-    const a = t.by[c], p0 = curAt(c, addDays(T, -30)), dd = p0 > 0 ? (a - p0) / p0 * 100 : null;
-    return `<div class="kpi"><div class="row"><span class="mut sm grow">${c}</span>${dd == null ? '' : dchip(dd)}</div><b class="kv">${moneyC(a, c)}</b>${c !== 'RUB' ? `<span class="mut sm">≈ ${money(a * rateOf(c), 'RUB')}</span>` : '<span class="sm">&nbsp;</span>'}${spark(curSeries(c))}</div>`;
+    const a = t.by[c], p0 = curAt(c, addDays(T, -30)), dd = p0 > 0 ? (a - p0) / p0 * 100 : null, sh = now ? a * rateOf(c) / now * 100 : 0;
+    return `<div class="ctile ct-${c}"><div class="row"><span class="ct-n grow">${CN[c][0]} ${CN[c][1]}</span><span class="ct-s">${sh.toFixed(0)}%</span></div><b class="ct-v money">${c === 'USD' ? nf.format(Math.round(a)) + ' $' : short(a) + ' ' + CN[c][0]}</b><div class="sm ct-m">${c !== 'RUB' ? '≈ <span class="money">' + short(a * rateOf(c)) + ' ₽</span> · ' : ''}${dd == null ? '' : `<span class="${dd >= 0 ? 'up' : 'dn'}">${dd >= 0 ? '▲' : '▼'}${Math.abs(dd).toFixed(1).replace('.', ',')}%</span> за 30 дн`}</div>${spark(curSeries(c), 'var(--cc-' + c + ')')}</div>`;
   }).join('');
+  const k = FX.keys(), rt = `$ ${nf2.format(rateOf('USD'))} ₽${spreadOf('USD') ? ' (−' + spreadOf('USD') + ')' : ''} · ₽ ${nf2.format(1 / (S.data.settings.rates.KZT || 1))} ₸${k.key ? ' · ключевая ' + String(k.key).replace('.', ',') + '%' : ''}${k.base ? ' · НБ РК ' + String(k.base).replace('.', ',') + '%' : ''}`;
   const ev = events().filter(e => !(e.k === 'reopen' && e.n < 0)).slice(0, 4);
-  return FX.banner() + `<div class="card hero"><div class="mut sm">Всего в рублях по твоим курсам</div><div class="big">${moneyC(now, 'RUB')}</div>
-    <div class="row wrap sm" style="margin-bottom:12px">${dl != null ? dchip(dl) + '<span class="mut">за 30 дней</span>' : ''}<span class="mut">· 1 ₸ = ${+rateOf('KZT').toFixed(4)} ₽ · 1 $ = ${+rateOf('USD').toFixed(2)} ₽${spreadOf('USD') ? ' (с запасом −' + spreadOf('USD') + ')' : ''}</span></div>
-    <div class="kpis">${kpi}</div></div>
+  return `<div class="card hero2"><div class="h-top"><div class="h-l"><div class="eyebrow">Капитал на ${fmtDate(dLast > T ? dLast : T)}</div><div class="gnum money">${moneyC(now, 'RUB')}</div>
+    <div class="row wrap sm" style="gap:6px 12px">${dS != null ? `<span class="${dS >= 0 ? 'up' : 'dn'}"><b>${dS >= 0 ? '▲' : '▼'} <span class="money">${short(Math.abs(dS))}</span></b> с ${fmtDate(dPrev)}</span>` : ''}${dY != null ? `<span class="mut"><span class="money">${sgn(dY)}</span> за год (${dY >= 0 ? '+' : ''}${(dY / yAgo * 100).toFixed(0)}%)</span>` : ''}</div>
+    <div class="sm mut" style="margin-top:4px">${rt}</div></div><div class="h-chart">${area}</div></div>
+    <div class="ctiles">${kpi}</div></div>
   <div style="margin-top:14px">${insightCards()}</div>
   <div class="grid g2" style="margin-top:0">
     <div class="card"><div class="row wrap" style="margin-bottom:8px"><h3 class="grow">Динамика капитала</h3><button class="chip ${S.fc ? 'on' : ''}" data-a="fc">Прогноз</button><div class="seg">${[['6', '6м'], ['12', '12м'], ['all', 'Всё']].map(([k, l]) => `<button class="${S.range === k ? 'on' : ''}" data-a="range" data-id="${k}">${l}</button>`).join('')}</div></div>
@@ -1877,7 +1944,7 @@ function viewSet() {
     <button class="btn" data-a="clrpos">Очистить все позиции</button>
     <button class="btn" data-a="demo">Добавить демо-данные</button>
     <div class="sm mut">Excel читается прямо в браузере и никуда не отправляется. Копия — это зашифрованный файл: без пароля или ключа восстановления это набор случайных байт.</div></div>
-  <div class="card col" style="grid-column:1/-1"><h3>Как это защищено <span class="tag">v4.4</span></h3><div class="sm mut">Мастер-пароль → PBKDF2‑SHA256, ${Vault.ITER_PW.toLocaleString('ru-RU')} итераций → ключ, которым открывается случайный ключ данных. Данные шифруются AES‑256‑GCM (с проверкой целостности). Пароль не хранится. В браузере лежит только шифротекст. Лимит попыток и задержка защищают от случайного подбора на устройстве, а от кражи файла защищает сила пароля.</div></div></div>`;
+  <div class="card col" style="grid-column:1/-1"><h3>Как это защищено <span class="tag">v4.5</span></h3><div class="sm mut">Мастер-пароль → PBKDF2‑SHA256, ${Vault.ITER_PW.toLocaleString('ru-RU')} итераций → ключ, которым открывается случайный ключ данных. Данные шифруются AES‑256‑GCM (с проверкой целостности). Пароль не хранится. В браузере лежит только шифротекст. Лимит попыток и задержка защищают от случайного подбора на устройстве, а от кражи файла защищает сила пароля.</div></div></div>`;
 }
 function openChangePw(forced) {
   modal(`<h3>${forced ? 'Задай новый мастер-пароль' : 'Смена пароля'}</h3><p class="sm mut">${forced ? 'Ты вошёл по ключу восстановления — старый пароль утерян, поставь новый.' : 'Ключ восстановления остаётся прежним.'}</p><form id="cf" class="col"><input class="inp" id="n1" type="password" placeholder="Новый пароль" autocomplete="new-password"><div class="meter" id="mt">${meterHTML(0)}</div><input class="inp" id="n2" type="password" placeholder="Повтори" autocomplete="new-password"><div class="err" id="er"></div><div class="row" style="justify-content:flex-end">${forced ? '' : '<button type="button" class="btn" data-x="c">Отмена</button>'}<button class="btn pri">Сохранить</button></div></form>`, ov => {
@@ -1915,6 +1982,7 @@ async function actions(a, el) {
     case 'goal': openGoal(); break;
     case 'snap': FX.open(id || undefined); break;
     case 'bcell': boardCell(id, el.dataset.d); break;
+    case 'bjump': { const th = document.getElementById('bdc-' + id), w = th && th.closest('.bd-w'); if (w) w.scrollTo({ left: th.offsetLeft - (w.querySelector('.bd-d') || {}).offsetWidth || 0, behavior: 'smooth' }); break; }
     case 'tdall': S.tdAll = true; render(); break;
     case 'bgrp': S.bgrp = id; render(); break;
     case 'bmode': S.bmode = id; render(); break;
@@ -1971,7 +2039,7 @@ async function doXlsx(f) {
   let found; try { found = parseWorkbook(await f.arrayBuffer()); } catch (e) { closeModal('ovl', true); return toast('Не смог прочитать файл: ' + e.message); }
   closeModal('ovl', true);
   if (!found.length) return toast('Не нашёл знакомых листов («движение средств», «состояние средств», «Мысли»)');
-  modal(`<div class="row" style="margin-bottom:8px"><h3 class="grow">Импорт из Excel <span class="tag">v4.4</span></h3><button class="ic" data-x="c">${ic('x')}</button></div><p class="sm mut">Найдено в файле. Отметь, что добавить (всё добавляется к существующему):</p>
+  modal(`<div class="row" style="margin-bottom:8px"><h3 class="grow">Импорт из Excel <span class="tag">v4.5</span></h3><button class="ic" data-x="c">${ic('x')}</button></div><p class="sm mut">Найдено в файле. Отметь, что добавить (всё добавляется к существующему):</p>
   ${found.map((x, i) => `<label class="card row" style="align-items:flex-start;margin-bottom:8px"><input type="checkbox" data-k="${i}" ${x.positions ? 'data-pos="1"' : ''} ${x.def && x.count ? 'checked' : ''} ${x.count ? '' : 'disabled'}><div><b>${esc(x.title)}</b> <span class="tag">${x.count}</span><div class="sm mut">${esc(x.desc)}</div></div></label>`).join('')}
   ${found.some(f => f.positions && f.positions.some(q => q._cl)) ? `<label class="row sm" style="margin-top:6px;align-items:flex-start"><input type="checkbox" id="autocl" checked><span>Закрыть вклады, которые в последнем столбце пустые, а срок уже вышел — деньги переложены в другие строки (иначе посчитаются дважды). Таких: <b>${found.reduce((s, f) => s + (f.positions ? f.positions.filter(q => q._cl).length : 0), 0)}</b></span></label>` : ''}
   <div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn pri" data-x="go">Импортировать</button></div>`, ov => {

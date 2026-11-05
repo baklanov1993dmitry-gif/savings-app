@@ -7,12 +7,12 @@ const PW = 'тест-пароль фраза 2026';
   const p = await ctx.newPage();
   p.on('pageerror', e => errs.push('PAGEERR ' + e.message)); p.on('console', m => m.type() === 'error' && errs.push('CONSOLE ' + m.text()));
   await p.goto('file:///home/claude/savings/savings.html');
-  await p.fill('#p1', PW); await p.fill('#p2', PW); await p.click('#go'); await p.waitForSelector('.reccode'); await p.check('#ok'); await p.click('#go'); await p.waitForSelector('.hero');
+  await p.fill('#p1', PW); await p.fill('#p2', PW); await p.click('#go'); await p.waitForSelector('.reccode'); await p.check('#ok'); await p.click('#go'); await p.waitForSelector('.hero2');
   await p.waitForTimeout(1800); await p.screenshot({ path: 'shots/v2_desk.png', fullPage: true });
-  ok('kpi cards', (await p.$$('.kpi')).length === 3);
+  ok('kpi cards', (await p.$$('.ctile')).length === 3);
   ok('forecast line present', await p.$('#lc path[stroke-dasharray="6 6"]') != null);
   ok('heatmap cells', (await p.$$('.hc')).length >= 27 * 7);
-  ok('goal card w/ verdict', (await p.textContent('.card:has(.bar)')).includes('По') || true);
+  ok('goal card w/ verdict', (await p.textContent('.card:has(.bar):not(.hero2)')).includes('По') || true);
   // heatmap click on a cell with events
   const cell = await p.$('.hc.l4, .hc.l3, .hc.l2, .hc.l1'); await cell.click(); await p.waitForTimeout(150);
   ok('heatmap detail', (await p.textContent('#hdetail')).length > 5 && await p.$('#hdetail .item') != null);
@@ -32,7 +32,7 @@ const PW = 'тест-пароль фраза 2026';
   ok('undo restores', stillThere === 1);
   // цель
   await p.click('[data-a=goal]'); await p.waitForSelector('#gf'); await p.fill('[name=amount]', '9000000'); await p.click('#gf button.pri'); await p.waitForTimeout(400);
-  ok('goal updated + monthly need', (await p.textContent('.card:has(.bar)')).includes('откладывать'));
+  ok('goal updated + monthly need', (await p.textContent('.card:has(.bar):not(.hero2)')).includes('откладывать'));
   // ставки + куда переложить
   await p.click('.side [data-id=dates]'); await p.waitForTimeout(300);
   ok('move card on dates', (await p.textContent('.main')).includes('Куда переложить'));
@@ -51,7 +51,7 @@ const PW = 'тест-пароль фраза 2026';
   // спойлер
   await p.click('.side [data-id=home]'); await p.waitForTimeout(300); await p.click('[data-a=hide]'); await p.waitForTimeout(1500);
   await p.screenshot({ path: 'shots/v2_hidden.png' });
-  const mc = await p.$('.hero .money'); const col = await mc.evaluate(e => getComputedStyle(e).color); ok('spoiler hides (transparent)', /0, 0, 0, 0|transparent/.test(col));
+  const mc = await p.$('.hero2 .ct-v.money'); const col = await mc.evaluate(e => getComputedStyle(e).color); ok('spoiler hides (transparent)', /0, 0, 0, 0|transparent/.test(col));
   await mc.click(); await p.waitForTimeout(150); ok('tap reveals', await mc.evaluate(e => e.classList.contains('rv')));
   await p.click('[data-a=hide]');
   // остров
@@ -66,13 +66,13 @@ const PW = 'тест-пароль фраза 2026';
   // телефон
   const m = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
   const mp = await m.newPage(); mp.on('pageerror', e => errs.push('M PAGEERR ' + e.message));
-  await mp.goto('file:///home/claude/savings/savings.html'); await mp.fill('#p1', PW); await mp.fill('#p2', PW); await mp.click('#go'); await mp.waitForSelector('.reccode'); await mp.check('#ok'); await mp.click('#go'); await mp.waitForSelector('.hero'); await mp.waitForTimeout(1800);
+  await mp.goto('file:///home/claude/savings/savings.html'); await mp.fill('#p1', PW); await mp.fill('#p2', PW); await mp.click('#go'); await mp.waitForSelector('.reccode'); await mp.check('#ok'); await mp.click('#go'); await mp.waitForSelector('.hero2'); await mp.waitForTimeout(1800);
   await mp.screenshot({ path: 'shots/v2_mob.png', fullPage: true });
   await mp.click('.nav [data-id=pos]'); await mp.waitForTimeout(300); await mp.click('.item >> nth=0'); await mp.waitForSelector('.grab'); await mp.waitForTimeout(600); await mp.screenshot({ path: 'shots/v2_mob_sheet.png' });
   const gb = await (await mp.$('.grab')).boundingBox(); await mp.touchscreen.tap(gb.x + 5, gb.y + 2);
   // reduced motion
   const rm = await b.newContext({ reducedMotion: 'reduce', viewport: { width: 1000, height: 700 } }); const rp = await rm.newPage(); rp.on('pageerror', e => errs.push('RM PAGEERR ' + e.message));
-  await rp.goto('file:///home/claude/savings/savings.html'); await rp.fill('#p1', PW); await rp.fill('#p2', PW); await rp.click('#go'); await rp.waitForSelector('.reccode'); await rp.check('#ok'); await rp.click('#go'); await rp.waitForSelector('.hero');
-  ok('reduced-motion: total rendered without animation', /\d/.test(await rp.textContent('.hero .big')));
+  await rp.goto('file:///home/claude/savings/savings.html'); await rp.fill('#p1', PW); await rp.fill('#p2', PW); await rp.click('#go'); await rp.waitForSelector('.reccode'); await rp.check('#ok'); await rp.click('#go'); await rp.waitForSelector('.hero2');
+  ok('reduced-motion: total rendered without animation', /\d/.test(await rp.textContent('.hero2 .gnum')));
   console.log('ERRORS:', errs); await b.close();
 })().catch(e => { console.error('FAIL', e.message); process.exit(1); });

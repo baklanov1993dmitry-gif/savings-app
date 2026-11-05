@@ -7,7 +7,7 @@ const BCN = { RUB: 'Рубли', KZT: 'Тенге', USD: 'Доллары' };
 const bankOf = p => (p.bank && p.bank.trim()) || (p.where || '').split(/\s+[·|\-–—\/]\s+/)[0].trim() || p.where;
 
 function boardModel() {
-  const per = S.bper === undefined ? 6 : S.bper, grp = S.bgrp || 'bank', hz = S.bzero !== false;
+  const per = S.bper === undefined ? 12 : S.bper, grp = S.bgrp || 'bank', hz = S.bzero !== false;
   const all = [...new Set(S.data.positions.flatMap(p => p.history.map(h => h.d)))].sort().reverse();
   const cut = per ? addDays(todayISO(), -per * 30) : '';
   let ds = all.filter(d => d >= cut); if (ds.length < 2) ds = all.slice(0, 12);
@@ -26,7 +26,7 @@ const bSum = (ps, d) => ps.reduce((s, p) => s + lastAmt(p, d), 0);
 
 function viewBoard() {
   if (!S.data.positions.length) return '<div class="card empty">Пока пусто — импортируй Excel или добавь позиции.</div>';
-  const M = boardModel(), { ds, all, grp, curs } = M, mode = S.bmode || 'sum', heat = !!S.bheat, fold = S.bfold || {}, per = S.bper === undefined ? 6 : S.bper;
+  const M = boardModel(), { ds, all, grp, curs } = M, mode = S.bmode || 'sum', heat = !!S.bheat, fold = S.bfold || {}, per = S.bper === undefined ? 12 : S.bper;
   const tc = {}, tot = d => tc[d] ?? (tc[d] = curs.reduce((s, x) => s + bSum(x.ps, d) * rateOf(x.c, d), 0));
   const prevOf = d => all[all.indexOf(d) + 1];
   const val = (ps, c, d) => { const r = rateOf(c, d), v = bSum(ps, d);
@@ -42,7 +42,7 @@ function viewBoard() {
     let a = '', tt = '';
     if (ps.length === 1 && !sub) { const h = ps[0].history.find(x => x.d === d); if (h && h.est) cls += ' est'; else if (!h && v) cls += ' carry'; if (mode === 'sum') { a = ` data-a="bcell" data-id="${ps[0].id}" data-d="${d}"`; tt = h ? (h.est ? 'расчёт приложения — нажми, чтобы поправить' : 'введено') : 'без изменений с прошлого снимка'; } }
     return `<td class="${cls}"${st}${a}${tt ? ` title="${tt}"` : ''}><span class="money">${fv(v)}</span></td>`; };
-  const head1 = curs.map(x => { const f = fold[x.c] || !x.cols.length; return `<th class="bd-cur cc-${x.c}" colspan="${f ? 1 : x.cols.length + 1}" data-a="bfold" data-id="${x.c}" title="свернуть / развернуть">${SYM[x.c]} ${BCN[x.c]} ${x.cols.length ? (fold[x.c] ? '▸' : '▾') : ''}</th>`; }).join('');
+  const head1 = curs.map(x => { const f = fold[x.c] || !x.cols.length; return `<th id="bdc-${x.c}" class="bd-cur cc-${x.c}" colspan="${f ? 1 : x.cols.length + 1}" data-a="bfold" data-id="${x.c}" title="свернуть / развернуть">${SYM[x.c]} ${BCN[x.c]} ${x.cols.length ? (fold[x.c] ? '▸' : '▾') : ''}</th>`; }).join('');
   const head2 = curs.map(x => (fold[x.c] || !x.cols.length ? '' : x.cols.map(g => `<th class="bd-h cc-${x.c}"${g.ps.length > 1 || grp === 'type' ? ` data-a="bgroup" data-id="${esc(g.k)}" data-c="${x.c}"` : ` data-a="editPos" data-id="${g.ps[0].id}"`} title="${esc(g.label)}${g.ps.length > 1 ? ' · мест: ' + g.ps.length : ''}">${esc(g.label.length > 13 ? g.label.slice(0, 12) + '…' : g.label)}</th>`).join('')) + `<th class="bd-h bd-s cc-${x.c}">Σ ${SYM[x.c]}</th>`).join('');
   const rows = ds.map(d => { const t = tot(d), q = prevOf(d), dl = q ? t - tot(q) : null, est = S.data.positions.some(p => p.history.some(h => h.d === d && h.est));
     const body = curs.map(x => (fold[x.c] || !x.cols.length ? '' : x.cols.map(g => cell(g.ps, x.c, d, false)).join('')) + cell(x.ps, x.c, d, true)).join('');
@@ -56,7 +56,7 @@ function viewBoard() {
     <button class="bdpill ${M.hz ? 'on' : ''}" data-a="bzero">${M.hz ? '✓ ' : ''}Скрыть нулевые</button>${seg(BPER, 'bper', per)}</div>
     <div class="row wrap" style="gap:8px"><button class="bdpill ${heat ? 'on' : ''}" data-a="bheat">🔥 Тепловая карта</button><div class="grow"></div><button class="btn sm" data-a="newPos">+ Место</button><button class="btn sm pri" data-a="snap">+ Снимок</button></div>
     <div class="row wrap" style="gap:8px"><span class="bdchip">Итог <b class="money">${nf.format(Math.round(tot(d0)))} ₽</b></span><span class="bdchip">Δ за период <b class="${dper >= 0 ? 'up' : 'dn'} money">${dper >= 0 ? '+' : '−'}${short(Math.abs(dper))}</b></span>${best ? `<span class="bdchip">Лучший рост: <b>${esc(best.n)} ${best.g >= 0 ? '+' : ''}${best.g.toFixed(0)}%</b></span>` : ''}<span class="bdchip">Мест с деньгами: <b>${nowN} из ${M.base.length}</b></span></div></div>
-  <div class="card bd-card"><div class="bd-w"><table class="bd"><thead><tr><th class="bd-d" rowspan="2">Дата</th>${head1}<th class="bd-h bd-t bd-r2" rowspan="2">Итог ₽</th><th class="bd-h bd-r1" rowspan="2">Δ</th></tr><tr>${head2}</tr></thead><tbody>${rows}</tbody></table></div></div>
+  <div class="row wrap" style="gap:6px;margin-bottom:8px"><span class="sm mut">Перейти:</span>${curs.map(x => `<button class="bdjump cc-${x.c}" data-a="bjump" data-id="${x.c}">${SYM[x.c]} ${BCN[x.c]} · <b class="money">${short(bSum(x.ps, ds[0]))}</b></button>`).join('')}</div><div class="card bd-card"><div class="bd-w"><table class="bd"><thead><tr><th class="bd-d" rowspan="2">Дата</th>${head1}<th class="bd-h bd-t bd-r2" rowspan="2">Итог ₽</th><th class="bd-h bd-r1" rowspan="2">Δ</th></tr><tr>${head2}</tr></thead><tbody>${rows}</tbody></table></div></div>
   <div class="sm mut" style="margin-top:10px">${M.hz ? `Нулевые места скрыты (${M.base.length - M.vis.length}) · ` : ''}клик по валюте ▾ — свернуть до одной суммы · клик по ячейке — правка · клик по названию — открыть место или группу · <i class="est">≈</i> — расчёт приложения, бледным — без изменений с прошлого снимка · банк места задаётся в карточке места</div>`;
 }
 

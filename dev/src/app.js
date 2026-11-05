@@ -175,7 +175,7 @@ function render() {
     ${TABS.map(([k, t, i]) => `<button class="nv ${S.tab === k ? 'on' : ''}" data-a="tab" data-id="${k}">${ic(i)}${t}${k === 'dates' && urgent ? `<span class="tag bad" style="margin-left:auto">${urgent}</span>` : ''}</button>`).join('')}
     <div class="grow"></div><button class="nv" data-a="palette">${ic('search')}Поиск <kbd style="margin-left:auto">Ctrl K</kbd></button></aside>
     <main class="main ${full ? 'fresh' : ''} ${S.tab === 'board' ? 'wide' : ''}">${S.memOnly ? '<div class="banner">Хранилище браузера недоступно — данные живут только до закрытия вкладки. Сделай экспорт копии в Настройках.</div>' : ''}
-    <div class="top"><h1>${TITLES[S.tab]}</h1><span class="tag" title="версия приложения">v4.4 · 05.11</span>
+    <div class="top"><h1>${TITLES[S.tab]}</h1><span class="tag" title="версия приложения">v4.5 · 05.11</span>
       <button class="ic" data-a="palette" title="Поиск и команды (Ctrl+K)">${ic('search')}</button>
       <button class="ic" data-a="hide" title="Скрыть суммы">${ic(d.settings.hide ? 'eyeoff' : 'eye')}</button>
       <button class="ic" data-a="lock" title="Заблокировать">${ic('lock')}</button></div>
@@ -190,15 +190,24 @@ function viewHome() {
   const d = S.data;
   if (!d.positions.length) return `<div class="card empty"><h2>Пока пусто</h2><p>Добавь первую позицию, импортируй свой Excel или загрузи демо-данные.</p><div class="row wrap" style="justify-content:center"><button class="btn pri" data-a="newPos">${ic('plus')}Добавить позицию</button><button class="btn" data-a="xlsx">${ic('xls')}Импорт из Excel</button><button class="btn" data-a="demo">Демо-данные</button></div></div>`;
   const T = todayISO(), t = totals(), now = t.rub, prev = totalAt(addDays(T, -30)), dl = prev > 0 ? (now - prev) / prev * 100 : null;
-  const dchip = v => `<span class="dl ${v >= 0 ? 'up' : 'dn'}">${v >= 0 ? '▲' : '▼'} ${Math.abs(v).toFixed(1).replace('.', ',')}%</span>`;
+  const ds = [...new Set(d.positions.flatMap(p => p.history.map(h => h.d)))].sort(), dLast = ds[ds.length - 1] || T, dPrev = ds[ds.length - 2];
+  const dS = dPrev ? now - totalAt(dPrev) : null, yAgo = totalAt(addDays(dLast, -365)), dY = yAgo > 0 ? now - yAgo : null;
+  const sgn = v => (v >= 0 ? '+' : '−') + short(Math.abs(v));
+  const hs = series().slice(-26), hv = hs.map(x => x.v);
+  const area = (() => { if (hv.length < 2) return ''; const W = 600, H = 96, mn = Math.min(...hv) * 0.985, mx = Math.max(...hv), X = k => k / (hv.length - 1) * W, Y = v => H - 6 - (v - mn) / ((mx - mn) || 1) * (H - 16);
+    const pth = hv.map((v, k) => (k ? 'L' : 'M') + X(k).toFixed(1) + ' ' + Y(v).toFixed(1)).join(''), lx = X(hv.length - 1), ly = Y(hv[hv.length - 1]);
+    return `<svg class="h-area" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><defs><linearGradient id="hag" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="var(--acc)" stop-opacity=".5"/><stop offset="1" stop-color="var(--acc)" stop-opacity="0"/></linearGradient></defs><path d="${pth}L${W} ${H}L0 ${H}Z" fill="url(#hag)"/><path d="${pth}" fill="none" stroke="var(--acc)" stroke-width="2.5" vector-effect="non-scaling-stroke" stroke-linejoin="round"/></svg><span class="h-dot" style="left:${lx / W * 100}%;top:${ly / H * 100}%"></span>`; })();
+  const CN = { RUB: ['₽', 'Рубли'], KZT: ['₸', 'Тенге'], USD: ['$', 'Доллары'] };
   const kpi = ['RUB', 'KZT', 'USD'].filter(c => t.by[c]).map(c => {
-    const a = t.by[c], p0 = curAt(c, addDays(T, -30)), dd = p0 > 0 ? (a - p0) / p0 * 100 : null;
-    return `<div class="kpi"><div class="row"><span class="mut sm grow">${c}</span>${dd == null ? '' : dchip(dd)}</div><b class="kv">${moneyC(a, c)}</b>${c !== 'RUB' ? `<span class="mut sm">≈ ${money(a * rateOf(c), 'RUB')}</span>` : '<span class="sm">&nbsp;</span>'}${spark(curSeries(c))}</div>`;
+    const a = t.by[c], p0 = curAt(c, addDays(T, -30)), dd = p0 > 0 ? (a - p0) / p0 * 100 : null, sh = now ? a * rateOf(c) / now * 100 : 0;
+    return `<div class="ctile ct-${c}"><div class="row"><span class="ct-n grow">${CN[c][0]} ${CN[c][1]}</span><span class="ct-s">${sh.toFixed(0)}%</span></div><b class="ct-v money">${c === 'USD' ? nf.format(Math.round(a)) + ' $' : short(a) + ' ' + CN[c][0]}</b><div class="sm ct-m">${c !== 'RUB' ? '≈ <span class="money">' + short(a * rateOf(c)) + ' ₽</span> · ' : ''}${dd == null ? '' : `<span class="${dd >= 0 ? 'up' : 'dn'}">${dd >= 0 ? '▲' : '▼'}${Math.abs(dd).toFixed(1).replace('.', ',')}%</span> за 30 дн`}</div>${spark(curSeries(c), 'var(--cc-' + c + ')')}</div>`;
   }).join('');
+  const k = FX.keys(), rt = `$ ${nf2.format(rateOf('USD'))} ₽${spreadOf('USD') ? ' (−' + spreadOf('USD') + ')' : ''} · ₽ ${nf2.format(1 / (S.data.settings.rates.KZT || 1))} ₸${k.key ? ' · ключевая ' + String(k.key).replace('.', ',') + '%' : ''}${k.base ? ' · НБ РК ' + String(k.base).replace('.', ',') + '%' : ''}`;
   const ev = events().filter(e => !(e.k === 'reopen' && e.n < 0)).slice(0, 4);
-  return FX.banner() + `<div class="card hero"><div class="mut sm">Всего в рублях по твоим курсам</div><div class="big">${moneyC(now, 'RUB')}</div>
-    <div class="row wrap sm" style="margin-bottom:12px">${dl != null ? dchip(dl) + '<span class="mut">за 30 дней</span>' : ''}<span class="mut">· 1 ₸ = ${+rateOf('KZT').toFixed(4)} ₽ · 1 $ = ${+rateOf('USD').toFixed(2)} ₽${spreadOf('USD') ? ' (с запасом −' + spreadOf('USD') + ')' : ''}</span></div>
-    <div class="kpis">${kpi}</div></div>
+  return `<div class="card hero2"><div class="h-top"><div class="h-l"><div class="eyebrow">Капитал на ${fmtDate(dLast > T ? dLast : T)}</div><div class="gnum money">${moneyC(now, 'RUB')}</div>
+    <div class="row wrap sm" style="gap:6px 12px">${dS != null ? `<span class="${dS >= 0 ? 'up' : 'dn'}"><b>${dS >= 0 ? '▲' : '▼'} <span class="money">${short(Math.abs(dS))}</span></b> с ${fmtDate(dPrev)}</span>` : ''}${dY != null ? `<span class="mut"><span class="money">${sgn(dY)}</span> за год (${dY >= 0 ? '+' : ''}${(dY / yAgo * 100).toFixed(0)}%)</span>` : ''}</div>
+    <div class="sm mut" style="margin-top:4px">${rt}</div></div><div class="h-chart">${area}</div></div>
+    <div class="ctiles">${kpi}</div></div>
   <div style="margin-top:14px">${insightCards()}</div>
   <div class="grid g2" style="margin-top:0">
     <div class="card"><div class="row wrap" style="margin-bottom:8px"><h3 class="grow">Динамика капитала</h3><button class="chip ${S.fc ? 'on' : ''}" data-a="fc">Прогноз</button><div class="seg">${[['6', '6м'], ['12', '12м'], ['all', 'Всё']].map(([k, l]) => `<button class="${S.range === k ? 'on' : ''}" data-a="range" data-id="${k}">${l}</button>`).join('')}</div></div>
@@ -354,7 +363,7 @@ function viewSet() {
     <button class="btn" data-a="clrpos">Очистить все позиции</button>
     <button class="btn" data-a="demo">Добавить демо-данные</button>
     <div class="sm mut">Excel читается прямо в браузере и никуда не отправляется. Копия — это зашифрованный файл: без пароля или ключа восстановления это набор случайных байт.</div></div>
-  <div class="card col" style="grid-column:1/-1"><h3>Как это защищено <span class="tag">v4.4</span></h3><div class="sm mut">Мастер-пароль → PBKDF2‑SHA256, ${Vault.ITER_PW.toLocaleString('ru-RU')} итераций → ключ, которым открывается случайный ключ данных. Данные шифруются AES‑256‑GCM (с проверкой целостности). Пароль не хранится. В браузере лежит только шифротекст. Лимит попыток и задержка защищают от случайного подбора на устройстве, а от кражи файла защищает сила пароля.</div></div></div>`;
+  <div class="card col" style="grid-column:1/-1"><h3>Как это защищено <span class="tag">v4.5</span></h3><div class="sm mut">Мастер-пароль → PBKDF2‑SHA256, ${Vault.ITER_PW.toLocaleString('ru-RU')} итераций → ключ, которым открывается случайный ключ данных. Данные шифруются AES‑256‑GCM (с проверкой целостности). Пароль не хранится. В браузере лежит только шифротекст. Лимит попыток и задержка защищают от случайного подбора на устройстве, а от кражи файла защищает сила пароля.</div></div></div>`;
 }
 function openChangePw(forced) {
   modal(`<h3>${forced ? 'Задай новый мастер-пароль' : 'Смена пароля'}</h3><p class="sm mut">${forced ? 'Ты вошёл по ключу восстановления — старый пароль утерян, поставь новый.' : 'Ключ восстановления остаётся прежним.'}</p><form id="cf" class="col"><input class="inp" id="n1" type="password" placeholder="Новый пароль" autocomplete="new-password"><div class="meter" id="mt">${meterHTML(0)}</div><input class="inp" id="n2" type="password" placeholder="Повтори" autocomplete="new-password"><div class="err" id="er"></div><div class="row" style="justify-content:flex-end">${forced ? '' : '<button type="button" class="btn" data-x="c">Отмена</button>'}<button class="btn pri">Сохранить</button></div></form>`, ov => {
@@ -392,6 +401,7 @@ async function actions(a, el) {
     case 'goal': openGoal(); break;
     case 'snap': FX.open(id || undefined); break;
     case 'bcell': boardCell(id, el.dataset.d); break;
+    case 'bjump': { const th = document.getElementById('bdc-' + id), w = th && th.closest('.bd-w'); if (w) w.scrollTo({ left: th.offsetLeft - (w.querySelector('.bd-d') || {}).offsetWidth || 0, behavior: 'smooth' }); break; }
     case 'tdall': S.tdAll = true; render(); break;
     case 'bgrp': S.bgrp = id; render(); break;
     case 'bmode': S.bmode = id; render(); break;
@@ -448,7 +458,7 @@ async function doXlsx(f) {
   let found; try { found = parseWorkbook(await f.arrayBuffer()); } catch (e) { closeModal('ovl', true); return toast('Не смог прочитать файл: ' + e.message); }
   closeModal('ovl', true);
   if (!found.length) return toast('Не нашёл знакомых листов («движение средств», «состояние средств», «Мысли»)');
-  modal(`<div class="row" style="margin-bottom:8px"><h3 class="grow">Импорт из Excel <span class="tag">v4.4</span></h3><button class="ic" data-x="c">${ic('x')}</button></div><p class="sm mut">Найдено в файле. Отметь, что добавить (всё добавляется к существующему):</p>
+  modal(`<div class="row" style="margin-bottom:8px"><h3 class="grow">Импорт из Excel <span class="tag">v4.5</span></h3><button class="ic" data-x="c">${ic('x')}</button></div><p class="sm mut">Найдено в файле. Отметь, что добавить (всё добавляется к существующему):</p>
   ${found.map((x, i) => `<label class="card row" style="align-items:flex-start;margin-bottom:8px"><input type="checkbox" data-k="${i}" ${x.positions ? 'data-pos="1"' : ''} ${x.def && x.count ? 'checked' : ''} ${x.count ? '' : 'disabled'}><div><b>${esc(x.title)}</b> <span class="tag">${x.count}</span><div class="sm mut">${esc(x.desc)}</div></div></label>`).join('')}
   ${found.some(f => f.positions && f.positions.some(q => q._cl)) ? `<label class="row sm" style="margin-top:6px;align-items:flex-start"><input type="checkbox" id="autocl" checked><span>Закрыть вклады, которые в последнем столбце пустые, а срок уже вышел — деньги переложены в другие строки (иначе посчитаются дважды). Таких: <b>${found.reduce((s, f) => s + (f.positions ? f.positions.filter(q => q._cl).length : 0), 0)}</b></span></label>` : ''}
   <div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn pri" data-x="go">Импортировать</button></div>`, ov => {
