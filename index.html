@@ -472,7 +472,7 @@ function importState(ws) {
   }
   const num = c => c != null && typeof S.get(lastR[0], c) === 'number' ? S.get(lastR[0], c) : null;
   const fxK = num(meta.fxK), fxU = num(meta.fxU);
-  out.meta = { date: lastR[1], rates: { KZT: fxK ? +(1 / fxK).toFixed(4) : null, USD: fxU || null }, sheetTotal: num(meta.tAll) };
+  out.meta = { date: lastR[1], rates: { KZT: fxK ? +(1 / fxK).toFixed(6) : null, USD: fxU || null }, sheetTotal: num(meta.tAll) };
   return out;
 }
 
@@ -494,7 +494,7 @@ function parseWorkbook(buf) {
     else if (n.includes('сравнение')) { const c = importCmp(ws); if (c) found.push({ key: name, title: name, desc: 'РФ или КЗ: ставки и сценарии курса → «Анализ → РФ или КЗ»', count: c.fxs.length, an: { cmp: c }, def: true }); }
     else if (n.includes('налогов')) { const t = importTax(ws); if (t) found.push({ key: name, title: name, desc: 'заметки про налог с вкладов → «Анализ → Налог» (там же калькулятор)', count: t.notes.length, an: { tax: t }, def: true }); }
     else if (n.includes('по годам')) { const y = importYears(ws); if (y) found.push({ key: name, title: name, desc: 'годы: начало/конец, расходы, проценты → «Анализ → По годам»', count: y.length, an: { years: y }, def: true }); }
-    else if (n.includes('банков')) { const b = importBanks(ws); if (b) found.push({ key: name, title: name, desc: 'снимки ставок банков по датам → «Анализ → Банки»', count: b.length, an: { banks: b }, def: true }); }
+    else if (n.includes('банков')) { const b = importBanks(ws), bt = importBankTab(ws); if (b || bt) found.push({ key: name, title: name, desc: 'снимки ставок банков по датам + сводная таблица → «Анализ → Банки»', count: (b ? b.length : 0) + (bt ? bt.rows.length : 0), an: { ...(b ? { banks: b } : {}), ...(bt ? { bt } : {}) }, def: true }); }
     else if (n.includes('мысли')) { const nt = importThoughts(ws); found.push({ key: name, title: name, desc: 'заметки с датами → раздел «Заметки»', count: nt.length, notes: nt, def: true }); }
   }
   /* «состояние средств» = сколько где лежит (главный источник); «движение средств» = справочник условий, подтягиваем по названию места */
@@ -931,7 +931,7 @@ const Bio = (() => {
 <script>
 /* Раздел «Анализ»: перенос листов «если бы не клал в крипту», «по годам копля», «анализ БАНКОВ» */
 const AN_YF = [['start', 'Начало года, ₽ (вручную)'], ['rub', 'Рубли'], ['kzt', 'Тенге'], ['usd', 'Крипта, $'], ['work', 'На работе'], ['deduct', 'Вычет'], ['exp', 'Расходы'], ['pKZ', 'Проценты КЗ'], ['pRF', 'Проценты РФ'], ['fxRub', 'Курс рубля план'], ['usdPlan', 'Крипта план, $'], ['fxUsd', 'Курс доллара план'], ['end', 'Конец года, план ₽'], ['fact', 'Факт на конец года, ₽ (вручную)']];
-const anDef = () => ({ crypto: { end: todayISO(), rate: '', rows: [] }, years: [], banks: [], home: { rf: '', fxNow: '', rows: [], notes: [] }, cmp: { rf: '', kz: '', kzt: '', fxs: [5.5, 5.2, 5, 4.9, 4.8], notes: [] }, tax: { salary: '', dep: '', key: 21, notes: [] } });
+const anDef = () => ({ crypto: { end: todayISO(), rate: '', rows: [] }, years: [], banks: [], bt: null, home: { rf: '', fxNow: '', rows: [], notes: [] }, cmp: { rf: '', kz: '', kzt: '', fxs: [5.5, 5.2, 5, 4.9, 4.8], notes: [] }, tax: { salary: '', dep: '', key: 21, notes: [] } });
 const A = () => { const s = S.data.settings; if (!s.analysis) s.analysis = anDef(); const d = anDef(); for (const k in d) if (!s.analysis[k]) s.analysis[k] = d[k]; return s.analysis; };
 const nz = v => (v === '' || v == null || isNaN(+v)) ? 0 : +v;
 /* универсальная привязка полей: data-ap="home.rf" или "home.rows.<id>.amt" */
@@ -981,6 +981,14 @@ function importBanks(ws) {
     if (snap.list.some(b => b.min !== '' || b.daily !== '' || b.max || b.note)) out.push(snap);
   }
   return out.length ? out : null;
+}
+
+function importBankTab(ws) {
+  const R = anRows(ws), hi = R.findIndex(r => /^банки$/i.test(String(r[0]).trim())); if (hi < 0) return null;
+  let d = ''; for (let i = hi - 1; i >= Math.max(0, hi - 3); i--) { const f = R[i].find(isSerial); if (f) { d = serialISO(f); break; } }
+  const t = v => String(v ?? '').replace(/\r/g, '').trim(), P = v => typeof v === 'number' ? pct(v) : t(v), rows = [];
+  for (let i = hi + 1; i < R.length && t(R[i][0]); i++) { const r = R[i]; rows.push({ id: uid(), bank: t(r[0]), dp: P(r[1]), dm: t(r[2]), dt: t(r[3]), np: P(r[4]), nm: t(r[5]), nt: t(r[6]), ep: P(r[7]), em: t(r[8]), et: t(r[9]), again: t(r[10]), note: t(r[11]) }); }
+  return rows.length ? { d, rows } : null;
 }
 
 function importHome(ws) {
@@ -1049,8 +1057,16 @@ function anYears() {
       <div class="sm mut">Проценты: РФ <span class="money">${n('pRF')}</span> · КЗ <span class="money">${n('pKZ')}</span></div></div>`; }).join('')}</div>` : '<div class="empty">Годов пока нет. Добавь год или импортируй лист «по годам копля»</div>');
 }
 const rateTxt = v => v === '' || v == null ? '—' : typeof v === 'number' ? v + '%' : esc(v);
+const BTC = [['bank', 'Банк'], ['dp', 'Вклад, %'], ['dm', 'макс'], ['dt', 'срок'], ['np', 'НС мин, %'], ['nm', 'макс'], ['nt', 'срок'], ['ep', 'НС ежедн, %'], ['em', 'макс'], ['et', 'срок'], ['again', 'Возобновл. ставки'], ['note', 'Прочее']];
+function btCard() {
+  const b = A().bt; if (!b) return '';
+  return `<div class="card" style="margin-top:14px"><div class="row" style="margin-bottom:8px"><h3 class="grow">Сводная таблица ${b.d ? 'на ' + fmtDate(b.d) : ''}</h3><button class="btn sm" data-a="btadd">${ic('plus')}Строка</button></div>
+  <div class="tw"><table class="tb"><tr>${BTC.map(([, l]) => `<th>${l}</th>`).join('')}<th></th></tr>${b.rows.map((r, n) => `<tr>${BTC.map(([k]) => `<td>${anIn('bt.cell', r[k], '', 'text', `data-n="${n}" data-k="${k}"`).replace('inputmode="decimal"', '')}</td>`).join('')}<td><button class="ic" data-a="btdel" data-id="${n}">${ic('x')}</button></td></tr>`).join('')}</table></div>
+  <div class="sm mut" style="margin-top:8px">Вклад / накопительный счёт на мин. остаток (НС мин) / на ежедневный остаток (НС ежедн): ставка, макс. сумма, срок.</div></div>`;
+}
+
 function anBanks() {
-  const B = [...A().banks].sort((a, b) => (b.d || '') < (a.d || '') ? -1 : 1); if (!B.length) return `<div class="row" style="justify-content:flex-end;margin-bottom:12px"><button class="btn sm" data-a="bsnap">${ic('plus')}Снимок</button></div><div class="empty">Нет данных. Импортируй лист «анализ БАНКОВ» или добавь снимок ставок</div>`;
+  const B = [...A().banks].sort((a, b) => (b.d || '') < (a.d || '') ? -1 : 1); if (!B.length) return btCard() +  `<div class="row" style="justify-content:flex-end;margin-bottom:12px"><button class="btn sm" data-a="bsnap">${ic('plus')}Снимок</button></div><div class="empty">Нет данных. Импортируй лист «анализ БАНКОВ» или добавь снимок ставок</div>`;
   const id = S.asnap && B.find(x => x.id === S.asnap) ? S.asnap : B[0].id, i = B.findIndex(x => x.id === id), s = B[i], prev = B[i + 1];
   const rows = [['min', 'На мин. остаток'], ['daily', 'На ежедн. остаток'], ['max', 'Макс. сумма'], ['term', 'Срок счёта'], ['lock', 'Сколько нельзя'], ['when', 'Когда можно'], ['note', 'Примечания']];
   const delta = (b, k) => { if (!prev) return ''; const p = prev.list.find(x => x.bank === b.bank); if (!p || typeof p[k] !== 'number' || typeof b[k] !== 'number' || p[k] === b[k]) return ''; const d = Math.round((b[k] - p[k]) * 10) / 10; return `<div class="sm" style="color:var(--${d > 0 ? 'acc' : 'bad, #e5484d'})">${d > 0 ? '▲ +' : '▼ '}${d}</div>`; };
@@ -1058,7 +1074,7 @@ function anBanks() {
   <div class="card"><div class="row" style="margin-bottom:8px"><label class="f grow">Дата снимка<input class="inp" type="date" data-an="b.d" data-sid="${id}" value="${s.d}"></label><button class="btn sm" data-a="bbank" data-id="${id}">${ic('plus')}Банк</button></div>
   <div class="tw"><table class="tb"><tr><th></th>${s.list.map((b, n) => `<th><input class="inp" data-an="b.name" data-sid="${id}" data-n="${n}" value="${esc(b.bank)}"></th>`).join('')}</tr>
   ${rows.map(([k, l]) => `<tr><th class="mut">${l}</th>${s.list.map((b, n) => `<td>${anIn('b.cell', b[k], '', 'text', `data-sid="${id}" data-n="${n}" data-k="${k}"`)}${k === 'min' || k === 'daily' ? delta(b, k) : ''}</td>`).join('')}</tr>`).join('')}</table></div>
-  <div class="sm mut" style="margin-top:8px">${prev ? 'Стрелки — изменение ставки к снимку от ' + (prev.d ? fmtDate(prev.d) : 'без даты') + '.' : 'Это самый ранний снимок.'}</div></div>`;
+  <div class="sm mut" style="margin-top:8px">${prev ? 'Стрелки — изменение ставки к снимку от ' + (prev.d ? fmtDate(prev.d) : 'без даты') + '.' : 'Это самый ранний снимок.'}</div></div>${btCard()}`;
 }
 
 const notesCard = (path, arr) => arr && arr.length ? `<div class="card col" style="margin-top:14px"><h3>Мои заметки с листа</h3>${arr.map(t => `<div class="sm mut" style="white-space:pre-wrap">${esc(t)}</div>`).join('<hr style="border:0;border-top:1px solid var(--line);width:100%">')}</div>` : '';
@@ -1109,6 +1125,7 @@ function anChange(e) {
   const el = e.target.closest('[data-an]'); if (!el) return false; const p = el.dataset.an, v = el.value, a = A();
   if (p === 'c.end') a.crypto.end = v; else if (p === 'c.rate') a.crypto.rate = v === '' ? '' : (num(v) ?? '');
   else if (p.startsWith('c.row.')) { const r = a.crypto.rows.find(x => x.id === el.closest('[data-rid]').dataset.rid); const f = p.slice(6); r[f] = f === 'd' ? v : (v === '' ? '' : (num(v) ?? '')); }
+  else if (p === 'bt.cell') { const r = a.bt && a.bt.rows[+el.dataset.n]; if (r) r[el.dataset.k] = v.trim(); }
   else if (p.startsWith('b.')) {
     const s = a.banks.find(x => x.id === el.dataset.sid); if (!s) return true;
     if (p === 'b.d') { s.d = v; } else if (p === 'b.name') s.list[+el.dataset.n].bank = v.trim(); else if (p === 'b.cell') { const k = el.dataset.k, n = num(v); s.list[+el.dataset.n][k] = (k === 'min' || k === 'daily') && v.trim() !== '' && n != null ? n : v.trim(); }
@@ -1129,6 +1146,8 @@ async function anAction(a, el) {
     case 'yedit': anYearModal(id); return true;
     case 'bpick': S.asnap = id; S.rc = false; S.fresh = false; render(); return true;
     case 'bsnap': { const last = [...A_.banks].sort((x, y) => (y.d || '') < (x.d || '') ? -1 : 1)[0]; const n = { id: uid(), d: todayISO(), list: last ? last.list.map(b => ({ ...b })) : [{ bank: 'Банк', min: '', daily: '', max: '', term: '', lock: '', when: '', note: '' }] }; A_.banks.push(n); S.asnap = n.id; anSave(true); return true; }
+    case 'btadd': { if (!A_.bt) A_.bt = { d: todayISO(), rows: [] }; A_.bt.rows.push({ id: uid(), bank: 'Банк', dp: '', dm: '', dt: '', np: '', nm: '', nt: '', ep: '', em: '', et: '', again: '', note: '' }); anSave(true); return true; }
+    case 'btdel': { const r = A_.bt && A_.bt.rows.splice(+id, 1)[0]; anSave(true); if (r) undoToast('Строка удалена', () => { A_.bt.rows.splice(+id, 0, r); anSave(true); }); return true; }
     case 'bbank': { const s = A_.banks.find(x => x.id === id); s.list.push({ bank: 'Банк', min: '', daily: '', max: '', term: '', lock: '', when: '', note: '' }); anSave(true); return true; }
     case 'bdel': { const s = A_.banks.find(x => x.id === id); A_.banks = A_.banks.filter(x => x.id !== id); S.asnap = null; anSave(true); undoToast('Снимок удалён', () => { A_.banks.push(s); anSave(true); }); return true; }
   }
@@ -1238,7 +1257,8 @@ const typeColor = t => { const i = TYPES.indexOf(t); return `var(--c${(i < 0 ? (
 
 /* ===== модель ===== */
 const newData = demo => ({ v: 1, positions: demo ? makeDemo().positions : [], notes: demo ? makeDemo().notes : [], settings: { rates: { KZT: 0.16, USD: 82 }, autolock: 3, hide: false, offers: demo ? makeOffers() : [], goal: demo ? { name: 'Накопить к концу года', amount: 4500000, date: todayISO().slice(0, 4) + '-12-31' } : null } });
-const rateOf = (c, d) => c === 'RUB' ? 1 : d ? FX.at(c, d) : (S.data.settings.rates[c] || 0);
+const spreadOf = c => (S.data.settings.spread && S.data.settings.spread[c]) || 0;
+const rateOf = (c, d) => c === 'RUB' ? 1 : Math.max(0, (d ? FX.at(c, d) : (S.data.settings.rates[c] || 0)) - spreadOf(c));
 const act = () => S.data.positions.filter(p => !p.archived);
 const rubOf = (p, d) => lastAmt(p, d) * rateOf(p.cur, d);
 function totals() {
@@ -1404,7 +1424,7 @@ function viewHome() {
   }).join('');
   const ev = events().filter(e => !(e.k === 'reopen' && e.n < 0)).slice(0, 4);
   return FX.banner() + `<div class="card hero"><div class="mut sm">Всего в рублях по твоим курсам</div><div class="big">${moneyC(now, 'RUB')}</div>
-    <div class="row wrap sm" style="margin-bottom:12px">${dl != null ? dchip(dl) + '<span class="mut">за 30 дней</span>' : ''}<span class="mut">· 1 ₸ = ${rateOf('KZT')} ₽ · 1 $ = ${rateOf('USD')} ₽</span></div>
+    <div class="row wrap sm" style="margin-bottom:12px">${dl != null ? dchip(dl) + '<span class="mut">за 30 дней</span>' : ''}<span class="mut">· 1 ₸ = ${+rateOf('KZT').toFixed(4)} ₽ · 1 $ = ${+rateOf('USD').toFixed(2)} ₽${spreadOf('USD') ? ' (с запасом −' + spreadOf('USD') + ')' : ''}</span></div>
     <div class="kpis">${kpi}</div></div>
   <div class="grid g2" style="margin-top:14px">
     <div class="card"><div class="row wrap" style="margin-bottom:8px"><h3 class="grow">Динамика капитала</h3><button class="chip ${S.fc ? 'on' : ''}" data-a="fc">Прогноз</button><div class="seg">${[['6', '6м'], ['12', '12м'], ['all', 'Всё']].map(([k, l]) => `<button class="${S.range === k ? 'on' : ''}" data-a="range" data-id="${k}">${l}</button>`).join('')}</div></div>
@@ -1529,7 +1549,7 @@ function viewSet() {
     <label class="f">Автоблокировка<select class="inp" data-i="autolock">${[[1, '1 минута'], [3, '3 минуты'], [10, '10 минут'], [0, 'никогда']].map(([v, l]) => `<option value="${v}" ${s.autolock === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
     <div class="row wrap"><button class="btn sm" data-a="chpw">Сменить пароль</button><button class="btn sm" data-a="newrec">Новый ключ восстановления</button><button class="btn sm" data-a="lock">${ic('lock')}Заблокировать</button></div>
     ${Bio.ok() ? (Bio.has() ? `<button class="btn sm" data-a="biooff">Отключить вход по отпечатку</button>` : `<button class="btn sm" data-a="bioon">Включить вход по отпечатку / лицу</button>`) + `<div class="sm mut">Отпечаток открывает только это устройство; мастер-пароль и ключ восстановления остаются главными.</div>` : `<div class="sm mut">Вход по отпечатку заработает, когда приложение открыто по https (установлено как PWA).</div>`}</div>
-  <div class="card col"><h3>Курсы к рублю</h3><div class="grid g2" style="gap:10px"><label class="f">1 ₸ = ... ₽<input class="inp" data-i="rKZT" inputmode="decimal" value="${s.rates.KZT}"></label><label class="f">1 $ = ... ₽<input class="inp" data-i="rUSD" inputmode="decimal" value="${s.rates.USD}"></label></div><div class="sm mut">${s.fx && s.fx.mig ? 'Стоят твои курсы — автообновление выключено.' : 'Обновляются сами при открытии (ЦБ РФ' + (s.fx && s.fx.upd ? ', ' + fmtDate(s.fx.upd) : '') + '); офлайн остаются последние.'}</div><label class="row sm" style="gap:8px"><input type="checkbox" data-i="fxmig" ${s.fx && s.fx.mig ? 'checked' : ''}> Мои курсы (не обновлять автоматически)</label><div class="row wrap"><button class="btn sm pri" data-a="snap">Сделать снимок остатков</button><button class="btn sm" data-a="fxnow">Обновить курсы</button></div><label class="row sm" style="gap:8px"><input type="checkbox" data-i="snapoff" ${s.snapOff ? 'checked' : ''}> Не напоминать про снимки</label></div>
+  <div class="card col"><h3>Курсы к рублю</h3><div class="grid g2" style="gap:10px"><label class="f">1 ₸ = ... ₽<input class="inp" data-i="rKZT" inputmode="decimal" value="${s.rates.KZT}"></label><label class="f">1 $ = ... ₽<input class="inp" data-i="rUSD" inputmode="decimal" value="${s.rates.USD}"></label></div><div class="sm mut">${s.fx && s.fx.mig ? 'Стоят твои курсы — автообновление выключено.' : 'Обновляются сами при открытии (ЦБ РФ' + (s.fx && s.fx.upd ? ', ' + fmtDate(s.fx.upd) : '') + '); офлайн остаются последние.'}</div><label class="f">Запас на курс доллара, ₽ (считать по курсу минус столько — на спред при обмене)<input class="inp" data-i="spUSD" inputmode="decimal" value="${spreadOf('USD')}"></label><label class="row sm" style="gap:8px"><input type="checkbox" data-i="fxmig" ${s.fx && s.fx.mig ? 'checked' : ''}> Мои курсы (не обновлять автоматически)</label><div class="row wrap"><button class="btn sm pri" data-a="snap">Сделать снимок остатков</button><button class="btn sm" data-a="fxnow">Обновить курсы</button></div><label class="row sm" style="gap:8px"><input type="checkbox" data-i="snapoff" ${s.snapOff ? 'checked' : ''}> Не напоминать про снимки</label></div>
   <div class="card col"><h3>Справочники и цель</h3>
     <button class="btn" data-a="offers">${ic('list')}Ставки банков</button><button class="btn" data-a="goal">${ic('gear')}Цель накопления</button><button class="btn" data-a="palette">${ic('search')}Поиск и команды <kbd>Ctrl K</kbd></button>
     <div class="sm mut">Ставки нужны для подсказки «куда переложить», цель — для прогноза «сколько откладывать в месяц».</div></div>
@@ -1542,7 +1562,7 @@ function viewSet() {
     <button class="btn" data-a="clrpos">Очистить все позиции</button>
     <button class="btn" data-a="demo">Добавить демо-данные</button>
     <div class="sm mut">Excel читается прямо в браузере и никуда не отправляется. Копия — это зашифрованный файл: без пароля или ключа восстановления это набор случайных байт.</div></div>
-  <div class="card col" style="grid-column:1/-1"><h3>Как это защищено <span class="tag">v3.9</span></h3><div class="sm mut">Мастер-пароль → PBKDF2‑SHA256, ${Vault.ITER_PW.toLocaleString('ru-RU')} итераций → ключ, которым открывается случайный ключ данных. Данные шифруются AES‑256‑GCM (с проверкой целостности). Пароль не хранится. В браузере лежит только шифротекст. Лимит попыток и задержка защищают от случайного подбора на устройстве, а от кражи файла защищает сила пароля.</div></div></div>`;
+  <div class="card col" style="grid-column:1/-1"><h3>Как это защищено <span class="tag">v4.0</span></h3><div class="sm mut">Мастер-пароль → PBKDF2‑SHA256, ${Vault.ITER_PW.toLocaleString('ru-RU')} итераций → ключ, которым открывается случайный ключ данных. Данные шифруются AES‑256‑GCM (с проверкой целостности). Пароль не хранится. В браузере лежит только шифротекст. Лимит попыток и задержка защищают от случайного подбора на устройстве, а от кражи файла защищает сила пароля.</div></div></div>`;
 }
 function openChangePw(forced) {
   modal(`<h3>${forced ? 'Задай новый мастер-пароль' : 'Смена пароля'}</h3><p class="sm mut">${forced ? 'Ты вошёл по ключу восстановления — старый пароль утерян, поставь новый.' : 'Ключ восстановления остаётся прежним.'}</p><form id="cf" class="col"><input class="inp" id="n1" type="password" placeholder="Новый пароль" autocomplete="new-password"><div class="meter" id="mt">${meterHTML(0)}</div><input class="inp" id="n2" type="password" placeholder="Повтори" autocomplete="new-password"><div class="err" id="er"></div><div class="row" style="justify-content:flex-end">${forced ? '' : '<button type="button" class="btn" data-x="c">Отмена</button>'}<button class="btn pri">Сохранить</button></div></form>`, ov => {
@@ -1627,14 +1647,14 @@ async function doXlsx(f) {
   let found; try { found = parseWorkbook(await f.arrayBuffer()); } catch (e) { closeModal('ovl', true); return toast('Не смог прочитать файл: ' + e.message); }
   closeModal('ovl', true);
   if (!found.length) return toast('Не нашёл знакомых листов («движение средств», «состояние средств», «Мысли»)');
-  modal(`<div class="row" style="margin-bottom:8px"><h3 class="grow">Импорт из Excel <span class="tag">v3.9</span></h3><button class="ic" data-x="c">${ic('x')}</button></div><p class="sm mut">Найдено в файле. Отметь, что добавить (всё добавляется к существующему):</p>
+  modal(`<div class="row" style="margin-bottom:8px"><h3 class="grow">Импорт из Excel <span class="tag">v4.0</span></h3><button class="ic" data-x="c">${ic('x')}</button></div><p class="sm mut">Найдено в файле. Отметь, что добавить (всё добавляется к существующему):</p>
   ${found.map((x, i) => `<label class="card row" style="align-items:flex-start;margin-bottom:8px"><input type="checkbox" data-k="${i}" ${x.positions ? 'data-pos="1"' : ''} ${x.def && x.count ? 'checked' : ''} ${x.count ? '' : 'disabled'}><div><b>${esc(x.title)}</b> <span class="tag">${x.count}</span><div class="sm mut">${esc(x.desc)}</div></div></label>`).join('')}
   ${found.some(f => f.positions && f.positions.some(q => q._cl)) ? `<label class="row sm" style="margin-top:6px;align-items:flex-start"><input type="checkbox" id="autocl" checked><span>Закрыть вклады, которые в последнем столбце пустые, а срок уже вышел — деньги переложены в другие строки (иначе посчитаются дважды). Таких: <b>${found.reduce((s, f) => s + (f.positions ? f.positions.filter(q => q._cl).length : 0), 0)}</b></span></label>` : ''}
   <div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn pri" data-x="go">Импортировать</button></div>`, ov => {
     ov.addEventListener('change', e => { const c = e.target.closest('[data-pos]'); if (c && c.checked) ov.querySelectorAll('[data-pos]').forEach(o => { if (o !== c && o.checked) { o.checked = false; toast('Позиции берутся из одного листа, иначе деньги задвоятся'); } }); });
     ov.addEventListener('click', async e => {
       const b = e.target.closest('[data-x]'); if (!b) return; if (b.dataset.x === 'c') return closeModal();
-      if (b.dataset.x === 'go') { let np = 0, nn = 0, na = 0, nclosed = 0; ov.querySelectorAll('[data-k]:checked').forEach(c => { const x = found[+c.dataset.k]; if (x.positions) { const ac = $('#autocl', ov) && $('#autocl', ov).checked; x.positions.forEach(q => { if (q._cl && ac) { q.history.push({ d: q._cl, amt: 0 }); q.archived = true; nclosed++; } delete q._cl; }); S.data.positions.push(...x.positions); np += x.positions.length; if (x.meta && x.meta.rates) { if (x.meta.rates.KZT) S.data.settings.rates.KZT = x.meta.rates.KZT; if (x.meta.rates.USD) S.data.settings.rates.USD = x.meta.rates.USD; if (x.meta.date && x.meta.rates.KZT && x.meta.rates.USD) { FX.st(); S.data.settings.rh[x.meta.date] = { KZT: x.meta.rates.KZT, USD: x.meta.rates.USD }; S.data.settings.fx.mig = true; } } } if (x.notes) { const have = new Set(S.data.notes.map(n => n.d + '|' + n.text)); const fresh = x.notes.filter(n => !have.has(n.d + '|' + n.text)); S.data.notes.push(...fresh); nn += fresh.length; } if (x.an) { const A_ = A(); if (x.an.crypto) A_.crypto = x.an.crypto; if (x.an.years) A_.years = x.an.years; if (x.an.banks) A_.banks = x.an.banks; for (const k of ['home', 'cmp', 'tax']) if (x.an[k]) A_[k] = x.an[k]; na++; } }); await persist(); closeModal(); render(); toast(`Добавлено: позиций ${np}, заметок ${nn}` + (na ? `, листов анализа ${na}` : '') + (nclosed ? `; закрыто как переложенные: ${nclosed}` : '')); }
+      if (b.dataset.x === 'go') { let np = 0, nn = 0, na = 0, nclosed = 0; ov.querySelectorAll('[data-k]:checked').forEach(c => { const x = found[+c.dataset.k]; if (x.positions) { const ac = $('#autocl', ov) && $('#autocl', ov).checked; x.positions.forEach(q => { if (q._cl && ac) { q.history.push({ d: q._cl, amt: 0 }); q.archived = true; nclosed++; } delete q._cl; }); S.data.positions.push(...x.positions); np += x.positions.length; if (x.meta && x.meta.rates) { if (x.meta.rates.KZT) S.data.settings.rates.KZT = x.meta.rates.KZT; if (x.meta.rates.USD) S.data.settings.rates.USD = x.meta.rates.USD; if (x.meta.date && x.meta.rates.KZT && x.meta.rates.USD) { FX.st(); S.data.settings.rh[x.meta.date] = { KZT: x.meta.rates.KZT, USD: x.meta.rates.USD }; S.data.settings.fx.mig = true; } } } if (x.notes) { const have = new Set(S.data.notes.map(n => n.d + '|' + n.text)); const fresh = x.notes.filter(n => !have.has(n.d + '|' + n.text)); S.data.notes.push(...fresh); nn += fresh.length; } if (x.an) { const A_ = A(); if (x.an.crypto) A_.crypto = x.an.crypto; if (x.an.years) A_.years = x.an.years; if (x.an.banks) A_.banks = x.an.banks; for (const k of ['home', 'cmp', 'tax', 'bt']) if (x.an[k]) A_[k] = x.an[k]; na++; } }); await persist(); closeModal(); render(); toast(`Добавлено: позиций ${np}, заметок ${nn}` + (na ? `, листов анализа ${na}` : '') + (nclosed ? `; закрыто как переложенные: ${nclosed}` : '')); }
     });
   });
 }
@@ -1649,6 +1669,7 @@ document.addEventListener('input', e => {
   const i = e.target.dataset.i; if (!i || !S.data) return;
   if (i === 'q') { S.q = e.target.value; const sn = flipSnap(); $('#plist').innerHTML = plist(); flipPlay(sn); }
   else if (i === 'q2') { S.q = e.target.value; const L = S.data.notes.filter(n => n.text.toLowerCase().includes(S.q.toLowerCase())).sort((a, b) => a.d < b.d ? 1 : -1); $('#nlist').innerHTML = L.length ? L.map(n => `<div class="item" style="align-items:flex-start;cursor:default"><div class="grow"><div class="sm mut">${fmtDate(n.d)}</div><div style="white-space:pre-wrap">${esc(n.text)}</div></div><button class="ic" data-a="delNote" data-id="${n.id}">${ic('x')}</button></div>`).join('') : '<div class="empty">Заметок нет</div>'; }
+  else if (i === 'spUSD') { const v = num(e.target.value); if (v != null && v >= 0) { const st = S.data.settings; st.spread = { ...(st.spread || {}), USD: v }; persist(); } }
   else if (i === 'rKZT' || i === 'rUSD') { const v = num(e.target.value); if (v > 0) { S.data.settings.rates[i.slice(1)] = v; FX.st().mig = true; persist(); } }
 });
 document.addEventListener('change', e => {
@@ -1658,7 +1679,7 @@ document.addEventListener('change', e => {
   else if (i === 'fxmig') { FX.st().mig = e.target.checked; persist(); render(); }
   else if (i === 'snapoff') { S.data.settings.snapOff = e.target.checked; persist(); }
   else if (i === 'hidedef') { S.data.settings.hide = e.target.checked; persist(); render(); }
-  else if (i === 'rKZT' || i === 'rUSD') render();
+  else if (i === 'rKZT' || i === 'rUSD' || i === 'spUSD') render();
 });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { const os = document.querySelectorAll('.ov'), o = os[os.length - 1]; if (o && !o.dataset.sticky) { if (o.id) closeModal(o.id); else o.remove(); } } });
 
