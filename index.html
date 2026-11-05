@@ -528,6 +528,9 @@ function migrate(d) {
   const s = d.settings = d.settings || {}; s.rates = s.rates || { KZT: 0.16, USD: 82 }; if (s.autolock == null) s.autolock = 3;
   if (!Array.isArray(s.offers)) s.offers = []; if (!('goal' in s)) s.goal = null;
   for (const p of d.positions) if (!('limit' in p)) p.limit = '';
+  /* убрать демо-банки и демо-цель, если остались от демо-режима */
+  const DEMO = ['Банк Север', 'Банк Восток', 'Банк Горизонт', 'Банк Степь', 'Банк Алтын'];
+  if (d.positions.some(p => !/^Банк (Север|Горизонт|Степь|Алтын|Запад)|^Платформа Заём|^Брокер Инвест|^Биржа Альфа|^Холодный кошелёк|^Заначка$/.test(p.where))) { s.offers = s.offers.filter(o => !DEMO.includes(o.bank)); if (s.goal && s.goal.amount === 4500000 && s.goal.name === 'Накопить к концу года') s.goal = null; }
   return d;
 }
 
@@ -1214,7 +1217,7 @@ const FX = {
         else if (x === 'later') { s.snapAt = addDays(T, -14 + 2); await persist(); closeModal('ov'); render(); toast('Напомню через 2 дня'); }
         else if (x === 'go') {
           const k = num($('#skzt', ov).value), u = num($('#susd', ov).value); if (!(k > 0 && u > 0)) return toast('Проверь курсы');
-          const my = $('#smig', ov).checked, ch = k !== s.rates.KZT || u !== s.rates.USD; s.rates.KZT = k; s.rates.USD = u; f.mig = my || (ch && f.mig);
+          const my = $('#smig', ov).checked, ch = k !== s.rates.KZT || u !== s.rates.USD; s.rates.KZT = k; s.rates.USD = u; f.mig = my || (ch && f.mig); f.migUser = f.mig;
           let n = 0; ov.querySelectorAll('[data-sp]').forEach(i => { if (i.value.trim() === '') return; const a = num(i.value); const p = S.data.positions.find(z => z.id === i.dataset.sp); if (!p || a == null || a === lastAmt(p)) return; p.history = p.history.filter(h => h.d !== T); p.history.push({ d: T, amt: a }); p.history.sort((m, q) => m.d < q.d ? -1 : 1); n++; });
           for (const p of act()) if (!p.history.some(h => h.d === T)) p.history.push({ d: T, amt: lastAmt(p) });
           s.rh = s.rh || {}; s.rh[T] = { KZT: k, USD: u }; s.snapAt = T;
@@ -1389,7 +1392,7 @@ document.addEventListener('visibilitychange', () => {
 const TABS = [['home', 'Обзор', 'home'], ['pos', 'Позиции', 'list'], ['dates', 'Даты', 'cal'], ['notes', 'Заметки', 'note'], ['an', 'Анализ', 'chart'], ['set', 'Настройки', 'gear']];
 const TITLES = { home: 'Обзор', pos: 'Позиции', dates: 'Ближайшие даты', notes: 'Заметки', an: 'Анализ', set: 'Настройки' };
 function startApp() {
-  migrate(S.data); S.fresh = true; S.tab = 'home'; bumpIdle(); render(); Sync.init(); FX.fetch();
+  migrate(S.data); if (S.data.settings.fx && S.data.settings.fx.mig && !S.data.settings.fx.migUser) S.data.settings.fx.mig = false; S.fresh = true; S.tab = 'home'; bumpIdle(); render(); Sync.init(); FX.fetch();
   if (S.recoveryFlow) { S.recoveryFlow = false; openChangePw(true); }
 }
 function render() {
@@ -1562,7 +1565,7 @@ function viewSet() {
     <button class="btn" data-a="clrpos">Очистить все позиции</button>
     <button class="btn" data-a="demo">Добавить демо-данные</button>
     <div class="sm mut">Excel читается прямо в браузере и никуда не отправляется. Копия — это зашифрованный файл: без пароля или ключа восстановления это набор случайных байт.</div></div>
-  <div class="card col" style="grid-column:1/-1"><h3>Как это защищено <span class="tag">v4.0</span></h3><div class="sm mut">Мастер-пароль → PBKDF2‑SHA256, ${Vault.ITER_PW.toLocaleString('ru-RU')} итераций → ключ, которым открывается случайный ключ данных. Данные шифруются AES‑256‑GCM (с проверкой целостности). Пароль не хранится. В браузере лежит только шифротекст. Лимит попыток и задержка защищают от случайного подбора на устройстве, а от кражи файла защищает сила пароля.</div></div></div>`;
+  <div class="card col" style="grid-column:1/-1"><h3>Как это защищено <span class="tag">v4.1</span></h3><div class="sm mut">Мастер-пароль → PBKDF2‑SHA256, ${Vault.ITER_PW.toLocaleString('ru-RU')} итераций → ключ, которым открывается случайный ключ данных. Данные шифруются AES‑256‑GCM (с проверкой целостности). Пароль не хранится. В браузере лежит только шифротекст. Лимит попыток и задержка защищают от случайного подбора на устройстве, а от кражи файла защищает сила пароля.</div></div></div>`;
 }
 function openChangePw(forced) {
   modal(`<h3>${forced ? 'Задай новый мастер-пароль' : 'Смена пароля'}</h3><p class="sm mut">${forced ? 'Ты вошёл по ключу восстановления — старый пароль утерян, поставь новый.' : 'Ключ восстановления остаётся прежним.'}</p><form id="cf" class="col"><input class="inp" id="n1" type="password" placeholder="Новый пароль" autocomplete="new-password"><div class="meter" id="mt">${meterHTML(0)}</div><input class="inp" id="n2" type="password" placeholder="Повтори" autocomplete="new-password"><div class="err" id="er"></div><div class="row" style="justify-content:flex-end">${forced ? '' : '<button type="button" class="btn" data-x="c">Отмена</button>'}<button class="btn pri">Сохранить</button></div></form>`, ov => {
@@ -1647,14 +1650,14 @@ async function doXlsx(f) {
   let found; try { found = parseWorkbook(await f.arrayBuffer()); } catch (e) { closeModal('ovl', true); return toast('Не смог прочитать файл: ' + e.message); }
   closeModal('ovl', true);
   if (!found.length) return toast('Не нашёл знакомых листов («движение средств», «состояние средств», «Мысли»)');
-  modal(`<div class="row" style="margin-bottom:8px"><h3 class="grow">Импорт из Excel <span class="tag">v4.0</span></h3><button class="ic" data-x="c">${ic('x')}</button></div><p class="sm mut">Найдено в файле. Отметь, что добавить (всё добавляется к существующему):</p>
+  modal(`<div class="row" style="margin-bottom:8px"><h3 class="grow">Импорт из Excel <span class="tag">v4.1</span></h3><button class="ic" data-x="c">${ic('x')}</button></div><p class="sm mut">Найдено в файле. Отметь, что добавить (всё добавляется к существующему):</p>
   ${found.map((x, i) => `<label class="card row" style="align-items:flex-start;margin-bottom:8px"><input type="checkbox" data-k="${i}" ${x.positions ? 'data-pos="1"' : ''} ${x.def && x.count ? 'checked' : ''} ${x.count ? '' : 'disabled'}><div><b>${esc(x.title)}</b> <span class="tag">${x.count}</span><div class="sm mut">${esc(x.desc)}</div></div></label>`).join('')}
   ${found.some(f => f.positions && f.positions.some(q => q._cl)) ? `<label class="row sm" style="margin-top:6px;align-items:flex-start"><input type="checkbox" id="autocl" checked><span>Закрыть вклады, которые в последнем столбце пустые, а срок уже вышел — деньги переложены в другие строки (иначе посчитаются дважды). Таких: <b>${found.reduce((s, f) => s + (f.positions ? f.positions.filter(q => q._cl).length : 0), 0)}</b></span></label>` : ''}
   <div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn pri" data-x="go">Импортировать</button></div>`, ov => {
     ov.addEventListener('change', e => { const c = e.target.closest('[data-pos]'); if (c && c.checked) ov.querySelectorAll('[data-pos]').forEach(o => { if (o !== c && o.checked) { o.checked = false; toast('Позиции берутся из одного листа, иначе деньги задвоятся'); } }); });
     ov.addEventListener('click', async e => {
       const b = e.target.closest('[data-x]'); if (!b) return; if (b.dataset.x === 'c') return closeModal();
-      if (b.dataset.x === 'go') { let np = 0, nn = 0, na = 0, nclosed = 0; ov.querySelectorAll('[data-k]:checked').forEach(c => { const x = found[+c.dataset.k]; if (x.positions) { const ac = $('#autocl', ov) && $('#autocl', ov).checked; x.positions.forEach(q => { if (q._cl && ac) { q.history.push({ d: q._cl, amt: 0 }); q.archived = true; nclosed++; } delete q._cl; }); S.data.positions.push(...x.positions); np += x.positions.length; if (x.meta && x.meta.rates) { if (x.meta.rates.KZT) S.data.settings.rates.KZT = x.meta.rates.KZT; if (x.meta.rates.USD) S.data.settings.rates.USD = x.meta.rates.USD; if (x.meta.date && x.meta.rates.KZT && x.meta.rates.USD) { FX.st(); S.data.settings.rh[x.meta.date] = { KZT: x.meta.rates.KZT, USD: x.meta.rates.USD }; S.data.settings.fx.mig = true; } } } if (x.notes) { const have = new Set(S.data.notes.map(n => n.d + '|' + n.text)); const fresh = x.notes.filter(n => !have.has(n.d + '|' + n.text)); S.data.notes.push(...fresh); nn += fresh.length; } if (x.an) { const A_ = A(); if (x.an.crypto) A_.crypto = x.an.crypto; if (x.an.years) A_.years = x.an.years; if (x.an.banks) A_.banks = x.an.banks; for (const k of ['home', 'cmp', 'tax', 'bt']) if (x.an[k]) A_[k] = x.an[k]; na++; } }); await persist(); closeModal(); render(); toast(`Добавлено: позиций ${np}, заметок ${nn}` + (na ? `, листов анализа ${na}` : '') + (nclosed ? `; закрыто как переложенные: ${nclosed}` : '')); }
+      if (b.dataset.x === 'go') { let np = 0, nn = 0, na = 0, nclosed = 0; ov.querySelectorAll('[data-k]:checked').forEach(c => { const x = found[+c.dataset.k]; if (x.positions) { const ac = $('#autocl', ov) && $('#autocl', ov).checked; x.positions.forEach(q => { if (q._cl && ac) { q.history.push({ d: q._cl, amt: 0 }); q.archived = true; nclosed++; } delete q._cl; }); S.data.positions.push(...x.positions); np += x.positions.length; if (x.meta && x.meta.rates) { if (x.meta.rates.KZT) S.data.settings.rates.KZT = x.meta.rates.KZT; if (x.meta.rates.USD) S.data.settings.rates.USD = x.meta.rates.USD; if (x.meta.date && x.meta.rates.KZT && x.meta.rates.USD) { FX.st(); S.data.settings.rh[x.meta.date] = { KZT: x.meta.rates.KZT, USD: x.meta.rates.USD }; } } } if (x.notes) { const have = new Set(S.data.notes.map(n => n.d + '|' + n.text)); const fresh = x.notes.filter(n => !have.has(n.d + '|' + n.text)); S.data.notes.push(...fresh); nn += fresh.length; } if (x.an) { const A_ = A(); if (x.an.crypto) A_.crypto = x.an.crypto; if (x.an.years) A_.years = x.an.years; if (x.an.banks) A_.banks = x.an.banks; for (const k of ['home', 'cmp', 'tax', 'bt']) if (x.an[k]) A_[k] = x.an[k]; na++; } }); await persist(); closeModal(); render(); toast(`Добавлено: позиций ${np}, заметок ${nn}` + (na ? `, листов анализа ${na}` : '') + (nclosed ? `; закрыто как переложенные: ${nclosed}` : '')); }
     });
   });
 }
@@ -1670,13 +1673,13 @@ document.addEventListener('input', e => {
   if (i === 'q') { S.q = e.target.value; const sn = flipSnap(); $('#plist').innerHTML = plist(); flipPlay(sn); }
   else if (i === 'q2') { S.q = e.target.value; const L = S.data.notes.filter(n => n.text.toLowerCase().includes(S.q.toLowerCase())).sort((a, b) => a.d < b.d ? 1 : -1); $('#nlist').innerHTML = L.length ? L.map(n => `<div class="item" style="align-items:flex-start;cursor:default"><div class="grow"><div class="sm mut">${fmtDate(n.d)}</div><div style="white-space:pre-wrap">${esc(n.text)}</div></div><button class="ic" data-a="delNote" data-id="${n.id}">${ic('x')}</button></div>`).join('') : '<div class="empty">Заметок нет</div>'; }
   else if (i === 'spUSD') { const v = num(e.target.value); if (v != null && v >= 0) { const st = S.data.settings; st.spread = { ...(st.spread || {}), USD: v }; persist(); } }
-  else if (i === 'rKZT' || i === 'rUSD') { const v = num(e.target.value); if (v > 0) { S.data.settings.rates[i.slice(1)] = v; FX.st().mig = true; persist(); } }
+  else if (i === 'rKZT' || i === 'rUSD') { const v = num(e.target.value); if (v > 0) { S.data.settings.rates[i.slice(1)] = v; FX.st().mig = true; FX.st().migUser = true; persist(); } }
 });
 document.addEventListener('change', e => {
   if (anChange(e)) return;
   const i = e.target.dataset.i; if (!i || !S.data) return;
   if (i === 'autolock') { S.data.settings.autolock = Number(e.target.value); persist(); bumpIdle(); }
-  else if (i === 'fxmig') { FX.st().mig = e.target.checked; persist(); render(); }
+  else if (i === 'fxmig') { FX.st().mig = e.target.checked; FX.st().migUser = e.target.checked; persist(); render(); }
   else if (i === 'snapoff') { S.data.settings.snapOff = e.target.checked; persist(); }
   else if (i === 'hidedef') { S.data.settings.hide = e.target.checked; persist(); render(); }
   else if (i === 'rKZT' || i === 'rUSD' || i === 'spUSD') render();
