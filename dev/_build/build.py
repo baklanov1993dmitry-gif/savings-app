@@ -1,5 +1,5 @@
 import re,pathlib
-R=pathlib.Path('/home/claude/savings')
+R=pathlib.Path(__file__).resolve().parent.parent
 rd=lambda p:(R/p).read_text(encoding='utf8')
 h=rd('src/app.html')
 lib=(R/'_build/node_modules/xlsx/dist/xlsx.mini.min.js').read_text(encoding='utf8').replace('</script','<\\/script')
@@ -7,4 +7,4 @@ for k,v in {'/*STYLE*/':rd('src/style.css'),'/*LIBS*/':lib,'/*CRYPTO*/':rd('src/
     h=h.replace(k,v)
 out=R/'savings.html'; out.write_text(h,encoding='utf8'); print(out,len(h)//1024,'KB')
 
-(R/'pwa/index.html').write_text(h,encoding='utf8')
+(R/'pwa').mkdir(exist_ok=True);(R/'pwa/index.html').write_text(h,encoding='utf8')
