@@ -1251,13 +1251,15 @@ const DEP_T = /вклад|счёт|счет|карта|копилк/i, NOPCT_T =
 function snapDates() { return [...new Set(S.data.positions.flatMap(p => p.history.map(h => h.d)))].sort(); }
 function whyChanged() {
   const ds = snapDates(); if (ds.length < 2) return null; const d2 = ds[ds.length - 1], d1 = ds[ds.length - 2];
-  let fx = 0, pct = 0, dl = 0;
+  let fx = 0, pct = 0, dl = 0; const mv = [];
   for (const p of inTot()) {
     const a1 = lastAmt(p, d1), a2 = lastAmt(p, d2), r1 = rateOf(p.cur, d1), r2 = rateOf(p.cur, d2);
-    dl += a2 * r2 - a1 * r1; fx += a1 * (r2 - r1);
+    dl += a2 * r2 - a1 * r1; fx += a1 * (r2 - r1); if (Math.abs(a2 * r2 - a1 * r1) > 1) mv.push({ p, a1, a2, v: a2 * r2 - a1 * r1 });
     if (p.rate && p.cap && a1 > 0 && !p.archived) pct += incomeOf(p, d1, a1, d2) * r2;
   }
-  return { d1, d2, dl, fx, pct, other: dl - fx - pct };
+  mv.sort((a, b) => Math.abs(b.v) - Math.abs(a.v));
+  const seen = {}, dups = []; for (const p of S.data.positions) { if (p.excl) continue; const k = p.cur + '|' + p.where.toLowerCase().replace(/\s+/g, ' ').trim(); if (seen[k] && (lastAmt(p, d1) > 0 || lastAmt(seen[k], d1) > 0)) dups.push(p.where); else seen[k] = p; }
+  return { d1, d2, dl, fx, pct, other: dl - fx - pct, mv: mv.slice(0, 6), dups: [...new Set(dups)] };
 }
 function bestOffers(cur) {
   if (cur !== 'RUB') return []; const out = [], bt = A().bt;
@@ -1301,6 +1303,8 @@ function insightCards() {
   const why = w ? `<div class="card"><div class="row" style="margin-bottom:4px"><h3 class="grow">Почему изменилось</h3><span class="sm mut">${fmtDate(w.d1)} → ${fmtDate(w.d2)}</span></div>
     <div class="big" style="font-size:26px;margin:4px 0 8px;color:var(--${w.dl >= 0 ? 'acc' : 'bad'})">${w.dl >= 0 ? '+' : '−'}${fmt(Math.abs(w.dl), 'RUB')}</div>
     ${bar('Проценты по вкладам', w.pct, 'var(--acc)')}${bar('Курсы валют', w.fx, 'var(--c2)')}${bar('Пополнения, снятия, рынок', w.other, 'var(--c3)')}
+    ${w.dups.length ? `<div class="sm" style="margin:8px 0;padding:8px 10px;border-radius:10px;background:color-mix(in srgb,var(--bad) 14%,transparent);border:1px solid color-mix(in srgb,var(--bad) 40%,transparent)">⚠ Похоже, позиции задвоены: ${w.dups.slice(0, 5).map(esc).join(', ')}${w.dups.length > 5 ? ' и ещё ' + (w.dups.length - 5) : ''}. Так бывает после нескольких импортов — сделай «Настройки → Очистить все позиции» и импортируй файл один раз.</div>` : ''}
+    ${w.mv.length ? `<details style="margin-top:8px"${Math.abs(w.dl) > totals().rub * 0.3 ? ' open' : ''}><summary class="sm" style="cursor:pointer">Какие места дали изменение</summary>${w.mv.map(x => `<div class="row sm" style="gap:8px;margin-top:4px" data-a="editPos" data-id="${x.p.id}"><span class="grow" style="cursor:pointer">${esc(x.p.where)}${x.p.archived ? ' <span class="mut">(архив)</span>' : ''}</span><span class="mut">${fmt(x.a1, x.p.cur)} → ${fmt(x.a2, x.p.cur)}</span><b class="money" style="min-width:90px;text-align:right;color:var(--${x.v >= 0 ? 'acc' : 'bad'})">${x.v >= 0 ? '+' : '−'}${short(Math.abs(x.v))}</b></div>`).join('')}</details>` : ''}
     <div class="sm mut" style="margin-top:6px">Проценты — расчёт по условиям вкладов; курсы — как изменилась стоимость тенге и долларов в рублях; остальное — то, что ты доложил/снял, и колебания крипты и инвестиций.</div></div>` : '';
   const td = `<div class="card"><div class="row" style="margin-bottom:6px"><h3 class="grow">Что сделать</h3>${todo.length ? `<span class="tag">${todo.length}</span>` : ''}</div>${todo.length ? todo.slice(0, S.tdAll ? 50 : 5).map(x => `<div class="item" data-a="editPos" data-id="${x.a}" style="align-items:flex-start;gap:10px;cursor:pointer">${ic(x.ic)}<div class="grow sm">${x.t}</div></div>`).join('') + (todo.length > 5 && !S.tdAll ? `<button class="btn sm" data-a="tdall">Ещё ${todo.length - 5}</button>` : '') : '<div class="sm mut">Всё в порядке: ничего не закрывается в ближайшие 3 недели, деньги работают.</div>'}</div>`;
   const tp = tx.free ? Math.min(100, tx.inc / tx.free * 100) : 0;
@@ -1800,7 +1804,7 @@ function viewSet() {
     <button class="btn" data-a="clrpos">Очистить все позиции</button>
     <button class="btn" data-a="demo">Добавить демо-данные</button>
     <div class="sm mut">Excel читается прямо в браузере и никуда не отправляется. Копия — это зашифрованный файл: без пароля или ключа восстановления это набор случайных байт.</div></div>
-  <div class="card col" style="grid-column:1/-1"><h3>Как это защищено <span class="tag">v4.2</span></h3><div class="sm mut">Мастер-пароль → PBKDF2‑SHA256, ${Vault.ITER_PW.toLocaleString('ru-RU')} итераций → ключ, которым открывается случайный ключ данных. Данные шифруются AES‑256‑GCM (с проверкой целостности). Пароль не хранится. В браузере лежит только шифротекст. Лимит попыток и задержка защищают от случайного подбора на устройстве, а от кражи файла защищает сила пароля.</div></div></div>`;
+  <div class="card col" style="grid-column:1/-1"><h3>Как это защищено <span class="tag">v4.3</span></h3><div class="sm mut">Мастер-пароль → PBKDF2‑SHA256, ${Vault.ITER_PW.toLocaleString('ru-RU')} итераций → ключ, которым открывается случайный ключ данных. Данные шифруются AES‑256‑GCM (с проверкой целостности). Пароль не хранится. В браузере лежит только шифротекст. Лимит попыток и задержка защищают от случайного подбора на устройстве, а от кражи файла защищает сила пароля.</div></div></div>`;
 }
 function openChangePw(forced) {
   modal(`<h3>${forced ? 'Задай новый мастер-пароль' : 'Смена пароля'}</h3><p class="sm mut">${forced ? 'Ты вошёл по ключу восстановления — старый пароль утерян, поставь новый.' : 'Ключ восстановления остаётся прежним.'}</p><form id="cf" class="col"><input class="inp" id="n1" type="password" placeholder="Новый пароль" autocomplete="new-password"><div class="meter" id="mt">${meterHTML(0)}</div><input class="inp" id="n2" type="password" placeholder="Повтори" autocomplete="new-password"><div class="err" id="er"></div><div class="row" style="justify-content:flex-end">${forced ? '' : '<button type="button" class="btn" data-x="c">Отмена</button>'}<button class="btn pri">Сохранить</button></div></form>`, ov => {
@@ -1888,7 +1892,7 @@ async function doXlsx(f) {
   let found; try { found = parseWorkbook(await f.arrayBuffer()); } catch (e) { closeModal('ovl', true); return toast('Не смог прочитать файл: ' + e.message); }
   closeModal('ovl', true);
   if (!found.length) return toast('Не нашёл знакомых листов («движение средств», «состояние средств», «Мысли»)');
-  modal(`<div class="row" style="margin-bottom:8px"><h3 class="grow">Импорт из Excel <span class="tag">v4.2</span></h3><button class="ic" data-x="c">${ic('x')}</button></div><p class="sm mut">Найдено в файле. Отметь, что добавить (всё добавляется к существующему):</p>
+  modal(`<div class="row" style="margin-bottom:8px"><h3 class="grow">Импорт из Excel <span class="tag">v4.3</span></h3><button class="ic" data-x="c">${ic('x')}</button></div><p class="sm mut">Найдено в файле. Отметь, что добавить (всё добавляется к существующему):</p>
   ${found.map((x, i) => `<label class="card row" style="align-items:flex-start;margin-bottom:8px"><input type="checkbox" data-k="${i}" ${x.positions ? 'data-pos="1"' : ''} ${x.def && x.count ? 'checked' : ''} ${x.count ? '' : 'disabled'}><div><b>${esc(x.title)}</b> <span class="tag">${x.count}</span><div class="sm mut">${esc(x.desc)}</div></div></label>`).join('')}
   ${found.some(f => f.positions && f.positions.some(q => q._cl)) ? `<label class="row sm" style="margin-top:6px;align-items:flex-start"><input type="checkbox" id="autocl" checked><span>Закрыть вклады, которые в последнем столбце пустые, а срок уже вышел — деньги переложены в другие строки (иначе посчитаются дважды). Таких: <b>${found.reduce((s, f) => s + (f.positions ? f.positions.filter(q => q._cl).length : 0), 0)}</b></span></label>` : ''}
   <div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn pri" data-x="go">Импортировать</button></div>`, ov => {
