@@ -184,7 +184,7 @@ function parseWorkbook(buf) {
         const T = todayISO(), live = p.history.length && p.history[p.history.length - 1].amt > 0;
         if (live && p.close && p.close < T && p.open && p.open < p.close) { const term = dnum(p.close) - dnum(p.open); let c = p.close; while (c < T) c = addDays(c, term); p.close = c; p.prolong = true; p.comment = (p.comment ? p.comment + '\n' : '') + 'Срок из таблицы прошёл, а деньги на месте — считаю, что вклад продлён на тот же срок. Поправь, если не так.'; }
       }
-      mv.def = false; mv.desc = 'справочник переложений: условия и даты из него уже подтянуты к позициям «состояния» (' + hit + ' совпало). Отмечать вместе с «состоянием» нельзя — деньги задвоятся';
+      mv.def = false; mv.sub = st.key; mv.desc = 'справочник переложений: условия и даты из него уже подтянуты к позициям «состояния» (' + hit + ' совпало). Отмечать вместе с «состоянием» нельзя — деньги задвоятся';
     }
     const app = st.positions.filter(p => !p.archived).reduce((s, p) => s + p.history[p.history.length - 1].amt * (p.cur === 'KZT' ? rt.KZT : p.cur === 'USD' ? rt.USD : 1), 0);
     st.meta = meta; st.desc = `сколько где лежит на ${meta.date ? fmtDate(meta.date) : 'последнюю дату'}. В приложении: ${Math.round(app).toLocaleString('ru-RU')} ₽` + (meta.sheetTotal ? `, в твоей таблице «общий итог»: ${Math.round(meta.sheetTotal).toLocaleString('ru-RU')} ₽` : '');
