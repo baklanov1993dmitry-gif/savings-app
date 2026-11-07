@@ -2,7 +2,7 @@ const { chromium } = require('playwright-core');
 (async()=>{const b=await chromium.launch({executablePath:'/opt/pw-browsers/chromium',args:['--no-sandbox']});const ctx=await b.newContext({viewport:{width:1200,height:900}});
 await ctx.route('**cbr-xml-daily.ru/**',r=>r.fulfill({contentType:'application/javascript',headers:{'access-control-allow-origin':'*'},body:JSON.stringify({Valute:{USD:{Nominal:1,Value:80.5381},KZT:{Nominal:100,Value:17.9797}}})}));
 const p=await ctx.newPage();const errs=[];p.on('pageerror',e=>errs.push(e.message));
-await p.goto('file:///home/claude/savings/savings.html');const PW='тест-пароль фраза 2026';await p.fill('#p1',PW);await p.fill('#p2',PW);await p.click('#go');await p.waitForSelector('.reccode');await p.check('#ok');await p.click('#go');await p.waitForSelector('.main');
+await p.goto('file:///home/claude/savings/savings.html');const PW='тест-пароль фраза 2026';await p.fill('#p1',PW);await p.fill('#p2',PW);await p.check('#demo');await p.click('#go');await p.waitForSelector('.reccode');await p.check('#ok');await p.click('#go');await p.waitForSelector('.main');
 await p.waitForTimeout(800);
 const ok=(n,c)=>console.log(c?'PASS':'FAIL',n);
 let r=await p.evaluate(()=>S.data.settings.rates);ok('auto rates '+JSON.stringify(r),r.USD===80.5381&&Math.abs(r.KZT-0.179797)<1e-6);

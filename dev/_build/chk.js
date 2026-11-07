@@ -1,0 +1,6 @@
+const { chromium } = require('playwright-core');
+(async()=>{const b=await chromium.launch({executablePath:'/opt/pw-browsers/chromium',args:['--no-sandbox']});const ctx=await b.newContext();await ctx.route('**cbr-xml-daily.ru/**',r=>r.abort());const p=await ctx.newPage();const errs=[];p.on('pageerror',e=>errs.push(e.message));
+await p.goto('file:///home/claude/savings/savings.html');const PW='тест-пароль фраза 2026';await p.fill('#p1',PW);await p.fill('#p2',PW);await p.uncheck('#demo').catch(()=>{});await p.click('#go');await p.waitForSelector('.reccode');await p.check('#ok');await p.click('#go');await p.waitForSelector('.main');
+await p.evaluate(()=>{S.tab='set';S.fresh=true;render()});
+const[fc]=await Promise.all([p.waitForEvent('filechooser'),p.click('[data-a=xlsx]')]);await fc.setFiles('real3.xlsx');await p.waitForSelector('[data-k]');await p.click('[data-x=go]');await p.waitForTimeout(500);
+console.log(JSON.stringify(await p.evaluate(()=>{S.data.settings.spread={USD:3};const s=series();const w=whyChanged();return {rh:Object.keys(S.data.settings.rh).length,pts:s.slice(-4).map(x=>x.t+' '+Math.round(x.v)),max:Math.round(Math.max(...s.map(x=>x.v))),why:{fx:Math.round(w.fx),pct:Math.round(w.pct),oth:Math.round(w.other)}}})),errs);await b.close()})();
