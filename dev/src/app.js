@@ -5,12 +5,13 @@ const LS = {
   set(k, v) { try { localStorage.setItem(k, v); } catch (e) { mem[k] = v; S.memOnly = true; } },
   del(k) { try { localStorage.removeItem(k); } catch (e) { delete mem[k]; } },
 };
-const S = { data: null, session: null, tab: 'home', filter: 'Все', q: '', range: '12', dmode: 'type', memOnly: false, recoveryFlow: false, fc: true, hday: null, fresh: true, rc: false, idleAt: 0 };
+const S = { fl: { cur: '', p: '', q: '' }, data: null, session: null, tab: 'home', filter: 'Все', q: '', range: '12', dmode: 'type', memOnly: false, recoveryFlow: false, fc: true, hday: null, fresh: true, rc: false, idleAt: 0 };
 const $app = document.getElementById('app');
 const $ = (s, r = document) => r.querySelector(s);
 const num = s => { const v = Number(String(s).replace(/\s/g, '').replace(',', '.')); return isNaN(v) ? null : v; };
 
 const ICO = {
+  swap: '<path d="M4 8h14M14 4l4 4-4 4M20 16H6M10 12l-4 4 4 4"/>',
   grid: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M3 15h18M9 4v16"/>',
   chart: '<path d="M4 20V11M10 20V5M16 20v-9M22 20H2"/>',
   lock: '<path d="M7 11V8a5 5 0 0 1 10 0v3"/><rect x="4.5" y="11" width="15" height="10" rx="2.5"/><path d="M12 15v3"/>',
@@ -28,7 +29,7 @@ const ic = (n, cls = '') => `<svg class="i ${cls}" viewBox="0 0 24 24">${ICO[n]}
 const typeColor = t => { const i = TYPES.indexOf(t); return `var(--c${(i < 0 ? (t.length % 7) : i) + 1})`; };
 
 /* ===== модель ===== */
-const newData = demo => ({ v: 1, positions: demo ? makeDemo().positions : [], notes: demo ? makeDemo().notes : [], settings: { rates: { KZT: 0.16, USD: 82 }, autolock: 3, hide: false, offers: demo ? makeOffers() : [], goal: demo ? { name: 'Накопить к концу года', amount: 4500000, date: todayISO().slice(0, 4) + '-12-31' } : null } });
+const newData = demo => ({ v: 1, positions: demo ? makeDemo().positions : [], notes: demo ? makeDemo().notes : [], flows: [], settings: { rates: { KZT: 0.16, USD: 82 }, autolock: 3, hide: false, offers: demo ? makeOffers() : [], goal: demo ? { name: 'Накопить к концу года', amount: 4500000, date: todayISO().slice(0, 4) + '-12-31' } : null } });
 const spreadOf = c => (S.data.settings.spread && S.data.settings.spread[c]) || 0;
 const rateOf = (c, d) => c === 'RUB' ? 1 : Math.max(0, (d ? FX.at(c, d) : (S.data.settings.rates[c] || 0)) - spreadOf(c));
 const act = () => S.data.positions.filter(p => !p.archived && !p.excl);
@@ -159,8 +160,8 @@ document.addEventListener('visibilitychange', () => {
 });
 
 /* ===== каркас ===== */
-const TABS = [['home', 'Обзор', 'home'], ['board', 'Панель', 'grid'], ['pos', 'Позиции', 'list'], ['dates', 'Даты', 'cal'], ['notes', 'Заметки', 'note'], ['an', 'Анализ', 'chart'], ['set', 'Настройки', 'gear']];
-const TITLES = { home: 'Обзор', board: 'Панель', pos: 'Позиции', dates: 'Ближайшие даты', notes: 'Заметки', an: 'Анализ', set: 'Настройки' };
+const TABS = [['home', 'Обзор', 'home'], ['board', 'Панель', 'grid'], ['pos', 'Позиции', 'list'], ['flow', 'Движение', 'swap'], ['dates', 'Даты', 'cal'], ['notes', 'Заметки', 'note'], ['an', 'Анализ', 'chart'], ['set', 'Настройки', 'gear']];
+const TITLES = { home: 'Обзор', board: 'Панель', pos: 'Позиции', flow: 'Движение средств', dates: 'Ближайшие даты', notes: 'Заметки', an: 'Анализ', set: 'Настройки' };
 function startApp() {
   migrate(S.data); if (S.data.settings.fx && S.data.settings.fx.mig && !S.data.settings.fx.migUser) S.data.settings.fx.mig = false; S.fresh = true; S.tab = 'home'; bumpIdle(); render(); Sync.init(); FX.fetch().finally(() => FX.auto());
   if (S.recoveryFlow) { S.recoveryFlow = false; openChangePw(true); }
@@ -170,12 +171,12 @@ function render() {
   animNow = S.fresh || S.rc; const full = S.fresh;
   $app.className = d.settings.hide ? 'hide' : '';
   const urgent = events().filter(e => e.k === 'close' && e.n <= 7).length;
-  const view = { home: viewHome, board: viewBoard, pos: viewPos, dates: viewDates, notes: viewNotes, an: viewAn, set: viewSet }[S.tab]();
+  const view = { home: viewHome, board: viewBoard, pos: viewPos, flow: viewFlows, dates: viewDates, notes: viewNotes, an: viewAn, set: viewSet }[S.tab]();
   $app.innerHTML = `<div class="shell"><aside class="side"><div class="brand">${ic('lock')} Накопления</div>
     ${TABS.map(([k, t, i]) => `<button class="nv ${S.tab === k ? 'on' : ''}" data-a="tab" data-id="${k}">${ic(i)}${t}${k === 'dates' && urgent ? `<span class="tag bad" style="margin-left:auto">${urgent}</span>` : ''}</button>`).join('')}
     <div class="grow"></div><button class="nv" data-a="palette">${ic('search')}Поиск <kbd style="margin-left:auto">Ctrl K</kbd></button></aside>
     <main class="main ${full ? 'fresh' : ''} ${S.tab === 'board' ? 'wide' : ''}">${S.memOnly ? '<div class="banner">Хранилище браузера недоступно — данные живут только до закрытия вкладки. Сделай экспорт копии в Настройках.</div>' : ''}
-    <div class="top"><h1>${TITLES[S.tab]}</h1><span class="tag" title="версия приложения">v4.8 · 08.11</span>
+    <div class="top"><h1>${TITLES[S.tab]}</h1><span class="tag" title="версия приложения">v4.9 · 08.11</span>
       <button class="ic" data-a="palette" title="Поиск и команды (Ctrl+K)">${ic('search')}</button>
       <button class="ic" data-a="hide" title="Скрыть суммы">${ic(d.settings.hide ? 'eyeoff' : 'eye')}</button>
       <button class="ic" data-a="lock" title="Заблокировать">${ic('lock')}</button></div>
@@ -363,7 +364,7 @@ function viewSet() {
     <button class="btn" data-a="clrpos">Очистить все позиции</button>
     <button class="btn" data-a="demo">Добавить демо-данные</button>
     <div class="sm mut">Excel читается прямо в браузере и никуда не отправляется. Копия — это зашифрованный файл: без пароля или ключа восстановления это набор случайных байт.</div></div>
-  <div class="card col" style="grid-column:1/-1"><h3>Как это защищено <span class="tag">v4.8</span></h3><div class="sm mut">Мастер-пароль → PBKDF2‑SHA256, ${Vault.ITER_PW.toLocaleString('ru-RU')} итераций → ключ, которым открывается случайный ключ данных. Данные шифруются AES‑256‑GCM (с проверкой целостности). Пароль не хранится. В браузере лежит только шифротекст. Лимит попыток и задержка защищают от случайного подбора на устройстве, а от кражи файла защищает сила пароля.</div></div></div>`;
+  <div class="card col" style="grid-column:1/-1"><h3>Как это защищено <span class="tag">v4.9</span></h3><div class="sm mut">Мастер-пароль → PBKDF2‑SHA256, ${Vault.ITER_PW.toLocaleString('ru-RU')} итераций → ключ, которым открывается случайный ключ данных. Данные шифруются AES‑256‑GCM (с проверкой целостности). Пароль не хранится. В браузере лежит только шифротекст. Лимит попыток и задержка защищают от случайного подбора на устройстве, а от кражи файла защищает сила пароля.</div></div></div>`;
 }
 function openChangePw(forced) {
   modal(`<h3>${forced ? 'Задай новый мастер-пароль' : 'Смена пароля'}</h3><p class="sm mut">${forced ? 'Ты вошёл по ключу восстановления — старый пароль утерян, поставь новый.' : 'Ключ восстановления остаётся прежним.'}</p><form id="cf" class="col"><input class="inp" id="n1" type="password" placeholder="Новый пароль" autocomplete="new-password"><div class="meter" id="mt">${meterHTML(0)}</div><input class="inp" id="n2" type="password" placeholder="Повтори" autocomplete="new-password"><div class="err" id="er"></div><div class="row" style="justify-content:flex-end">${forced ? '' : '<button type="button" class="btn" data-x="c">Отмена</button>'}<button class="btn pri">Сохранить</button></div></form>`, ov => {
@@ -415,6 +416,10 @@ async function actions(a, el) {
     case 'palette': openPalette(); break;
     case 'newPos': openPos(null); break;
     case 'editPos': openPos(id); break;
+    case 'fnew': flEdit(null); break;
+    case 'fedit': flEdit((S.data.flows || []).find(f => f.id === id)); break;
+    case 'fapply': { const f = S.data.flows.find(z => z.id === id); if (!f) break; flApply(f); await persist(); render(); break; }
+    case 'flc': S.fl.cur = id; render(); break;
     case 'addNote': { const t = $('#nt').value.trim(); if (!t) return; S.data.notes.push({ id: uid(), d: $('#nd').value || todayISO(), text: t }); await persist(); render(); break; }
     case 'delNote': { const n0 = S.data.notes.find(n => n.id === id); if (!n0) break; S.data.notes = S.data.notes.filter(n => n.id !== id); await persist(); render(); undoToast('Заметка удалена', async () => { S.data.notes.push(n0); await persist(); render(); }); break; }
     case 'theme': document.documentElement.dataset.theme = id; LS.set('sv_theme', id); render(); break;
@@ -458,13 +463,13 @@ async function doXlsx(f) {
   let found; try { found = parseWorkbook(await f.arrayBuffer()); } catch (e) { closeModal('ovl', true); return toast('Не смог прочитать файл: ' + e.message); }
   closeModal('ovl', true);
   if (!found.length) return toast('Не нашёл знакомых листов («движение средств», «состояние средств», «Мысли»)');
-  modal(`<div class="row" style="margin-bottom:8px"><h3 class="grow">Импорт из Excel <span class="tag">v4.8</span></h3><button class="ic" data-x="c">${ic('x')}</button></div><p class="sm mut">Найдено в файле. Отметь, что добавить (всё добавляется к существующему):</p>
+  modal(`<div class="row" style="margin-bottom:8px"><h3 class="grow">Импорт из Excel <span class="tag">v4.9</span></h3><button class="ic" data-x="c">${ic('x')}</button></div><p class="sm mut">Найдено в файле. Отметь, что добавить (всё добавляется к существующему):</p>
   ${found.map((x, i) => `<label class="card row" style="align-items:flex-start;margin-bottom:8px"><input type="checkbox" data-k="${i}" ${x.positions ? 'data-pos="1"' : ''} ${x.def && x.count ? 'checked' : ''} ${x.count ? '' : 'disabled'}><div><b>${esc(x.title)}</b> <span class="tag">${x.count}</span><div class="sm mut">${esc(x.desc)}</div></div></label>`).join('')}
   ${found.some(f => f.positions && f.positions.some(q => q._cl)) ? `<label class="row sm" style="margin-top:6px;align-items:flex-start"><input type="checkbox" id="autocl" checked><span>Закрыть вклады, которые в последнем столбце пустые, а срок уже вышел — деньги переложены в другие строки (иначе посчитаются дважды). Таких: <b>${found.reduce((s, f) => s + (f.positions ? f.positions.filter(q => q._cl).length : 0), 0)}</b></span></label>` : ''}
   <div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn pri" data-x="go">Импортировать</button></div>`, ov => {
     ov.addEventListener('click', async e => {
       const b = e.target.closest('[data-x]'); if (!b) return; if (b.dataset.x === 'c') return closeModal();
-      if (b.dataset.x === 'go') { const ckd = [...ov.querySelectorAll('[data-k]:checked')].map(c => found[+c.dataset.k]); ckd.forEach(x => { if (x.sub && ckd.some(y => y.key === x.sub)) { x.skip = true; x.positions = x.extra || []; } }); const hasPos = ckd.some(x => x.positions), oldPos = S.data.positions; if (hasPos && oldPos.length) { if (!await ask(`Сейчас в приложении уже ${oldPos.length} позиций (демо или прошлый импорт). Заменить их данными из файла? Иначе суммы задвоятся. Можно будет отменить.`, 'Заменить', true)) return; S.data.positions = []; setTimeout(() => undoToast('Старые позиции заменены', async () => { S.data.positions = oldPos.concat(S.data.positions.filter(q => !found.some(f => f.positions && f.positions.includes(q)))); await persist(); render(); }, 15000), 300); } let np = 0, nn = 0, na = 0, nclosed = 0; ov.querySelectorAll('[data-k]:checked').forEach(c => { const x = found[+c.dataset.k]; if (x.positions) { const ac = $('#autocl', ov) && $('#autocl', ov).checked; x.positions.forEach(q => { if (q._cl && ac) { q.history.push({ d: q._cl, amt: 0 }); q.archived = true; nclosed++; } delete q._cl; }); S.data.positions.push(...x.positions); np += x.positions.length; if (x.meta && x.meta.rates) { if (x.meta.rates.KZT) S.data.settings.rates.KZT = x.meta.rates.KZT; if (x.meta.rates.USD) S.data.settings.rates.USD = x.meta.rates.USD; if (x.meta.date && x.meta.rates.KZT && x.meta.rates.USD) { FX.st(); S.data.settings.rh[x.meta.date] = { KZT: x.meta.rates.KZT, USD: x.meta.rates.USD }; } if (x.meta.rh) { FX.st(); Object.assign(S.data.settings.rh, x.meta.rh); } const ld = x.meta.date; if (ld && (!S.data.settings.snapAt || ld > S.data.settings.snapAt)) S.data.settings.snapAt = ld; } } if (x.notes) { const have = new Set(S.data.notes.map(n => n.d + '|' + n.text)); const fresh = x.notes.filter(n => !have.has(n.d + '|' + n.text)); S.data.notes.push(...fresh); nn += fresh.length; } if (x.an) { const A_ = A(); if (x.an.crypto) A_.crypto = x.an.crypto; if (x.an.years) A_.years = x.an.years; if (x.an.banks) A_.banks = x.an.banks; for (const k of ['home', 'cmp', 'tax', 'bt']) if (x.an[k]) A_[k] = x.an[k]; na++; } }); await persist(); closeModal(); render(); toast(`Добавлено: позиций ${np}, заметок ${nn}` + (na ? `, листов анализа ${na}` : '') + (nclosed ? `; закрыто как переложенные: ${nclosed}` : '')); }
+      if (b.dataset.x === 'go') { const ckd = [...ov.querySelectorAll('[data-k]:checked')].map(c => found[+c.dataset.k]); const hasPos = ckd.some(x => x.positions), oldPos = S.data.positions; if (hasPos && oldPos.length) { if (!await ask(`Сейчас в приложении уже ${oldPos.length} позиций (демо или прошлый импорт). Заменить их данными из файла? Иначе суммы задвоятся. Можно будет отменить.`, 'Заменить', true)) return; S.data.positions = []; setTimeout(() => undoToast('Старые позиции заменены', async () => { S.data.positions = oldPos.concat(S.data.positions.filter(q => !found.some(f => f.positions && f.positions.includes(q)))); await persist(); render(); }, 15000), 300); } let np = 0, nn = 0, na = 0, nclosed = 0, nf_ = 0; ov.querySelectorAll('[data-k]:checked').forEach(c => { const x = found[+c.dataset.k]; if (x.positions) { const ac = $('#autocl', ov) && $('#autocl', ov).checked; x.positions.forEach(q => { if (q._cl && ac) { q.history.push({ d: q._cl, amt: 0 }); q.archived = true; nclosed++; } delete q._cl; }); S.data.positions.push(...x.positions); np += x.positions.length; if (x.meta && x.meta.rates) { if (x.meta.rates.KZT) S.data.settings.rates.KZT = x.meta.rates.KZT; if (x.meta.rates.USD) S.data.settings.rates.USD = x.meta.rates.USD; if (x.meta.date && x.meta.rates.KZT && x.meta.rates.USD) { FX.st(); S.data.settings.rh[x.meta.date] = { KZT: x.meta.rates.KZT, USD: x.meta.rates.USD }; } if (x.meta.rh) { FX.st(); Object.assign(S.data.settings.rh, x.meta.rh); } const ld = x.meta.date; if (ld && (!S.data.settings.snapAt || ld > S.data.settings.snapAt)) S.data.settings.snapAt = ld; } } if (x.flows) { S.data.flows = S.data.flows || []; const hv = new Set(S.data.flows.map(flKey)); const fr = x.flows.filter(f => !hv.has(flKey(f))); S.data.flows.push(...fr); nf_ += fr.length; } if (x.notes) { const have = new Set(S.data.notes.map(n => n.d + '|' + n.text)); const fresh = x.notes.filter(n => !have.has(n.d + '|' + n.text)); S.data.notes.push(...fresh); nn += fresh.length; } if (x.an) { const A_ = A(); if (x.an.crypto) A_.crypto = x.an.crypto; if (x.an.years) A_.years = x.an.years; if (x.an.banks) A_.banks = x.an.banks; for (const k of ['home', 'cmp', 'tax', 'bt']) if (x.an[k]) A_[k] = x.an[k]; na++; } }); await persist(); closeModal(); render(); toast(`Добавлено: позиций ${np}, переводов ${nf_}, заметок ${nn}` + (na ? `, листов анализа ${na}` : '') + (nclosed ? `; закрыто как переложенные: ${nclosed}` : '')); }
     });
   });
 }
@@ -477,7 +482,9 @@ document.addEventListener('click', e => {
 }, true);
 document.addEventListener('input', e => {
   const i = e.target.dataset.i; if (!i || !S.data) return;
-  if (i === 'q') { S.q = e.target.value; const sn = flipSnap(); $('#plist').innerHTML = plist(); flipPlay(sn); }
+  if (i === 'flp') { S.fl.p = e.target.value; render(); }
+  else if (i === 'flq') { S.fl.q = e.target.value; $('#fllist').innerHTML = flList(); const L = flFiltered(), by = {}; L.forEach(f => by[f.cur] = (by[f.cur] || 0) + f.amt); $('#flsum').innerHTML = Object.keys(by).map(c => `<span class="tag" style="--cc:var(--cc-${c})">${SYM[c]} <b class="money">${fmt(by[c], c)}</b></span>`).join('') + `<span class="mut sm">${L.length} перев.</span>`; }
+  else if (i === 'q') { S.q = e.target.value; const sn = flipSnap(); $('#plist').innerHTML = plist(); flipPlay(sn); }
   else if (i === 'q2') { S.q = e.target.value; const L = S.data.notes.filter(n => n.text.toLowerCase().includes(S.q.toLowerCase())).sort((a, b) => a.d < b.d ? 1 : -1); $('#nlist').innerHTML = L.length ? L.map(n => `<div class="item" style="align-items:flex-start;cursor:default"><div class="grow"><div class="sm mut">${fmtDate(n.d)}</div><div style="white-space:pre-wrap">${esc(n.text)}</div></div><button class="ic" data-a="delNote" data-id="${n.id}">${ic('x')}</button></div>`).join('') : '<div class="empty">Заметок нет</div>'; }
   else if (i === 'spUSD') { const v = num(e.target.value); if (v != null && v >= 0) { const st = S.data.settings; st.spread = { ...(st.spread || {}), USD: v }; persist(); } }
   else if (i === 'rKZT' || i === 'rUSD') { const v = num(e.target.value); if (v > 0) { S.data.settings.rates[i.slice(1)] = v; FX.st().mig = true; FX.st().migUser = true; persist(); } }

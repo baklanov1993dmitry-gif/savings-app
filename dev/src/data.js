@@ -95,8 +95,8 @@ function importMovement(ws) {
     const raw = sv(S.get(r, tc)); if (!raw) continue;
     const [base, ...rest] = raw.split('_'); const extra = rest.join('_').trim();
     const where = sv(col.where != null ? S.get(r, col.where) : '') || extra || '';
-    const history = [];
-    for (const [c, d] of dcols) { const v = S.get(r, c); if (typeof v === 'number') history.push({ d, amt: v }); else if (history.length && history[history.length - 1].amt !== 0 && sv(v)) history.push({ d, amt: 0 }); /* «переведено», «-» после сумм = деньги ушли */ }
+    const history = [], notes = [];
+    for (const [c, d] of dcols) { const v = S.get(r, c); { const tv = typeof v === 'number' ? '' : sv(v); if (tv && tv !== '-') notes.push({ d, t: tv }); } if (typeof v === 'number') history.push({ d, amt: v }); else if (history.length && history[history.length - 1].amt !== 0 && sv(v)) history.push({ d, amt: 0 }); /* «переведено», «-» после сумм = деньги ушли */ }
     const cond = sv(col.cond != null ? S.get(r, col.cond) : '');
     const open = col.open != null ? anyDate(S.get(r, col.open)) : '', close = col.close != null ? anyDate(S.get(r, col.close)) : '';
     let comment = sv(col.cm != null ? S.get(r, col.cm) : '');
@@ -107,7 +107,7 @@ function importMovement(ws) {
     /* кандидат «деньги переложены»: в последнем столбце таблицы пусто, а срок вклада уже наступил к дате этого столбца */
     const lastD = dcols.length ? dcols.map(x => x[1]).sort().pop() : '', ha = history.length ? history[history.length - 1] : null;
     const cl = ha && ha.amt !== 0 && ha.d < lastD && close && close <= lastD ? (close > ha.d ? close : addDays(ha.d, 1)) : '';
-    out.push({ id: uid(), type: normType(base), where: where || base.trim(), cur: guessCur(raw, where), rate: m ? Number(m[1].replace(',', '.')) : pureRate(cond), cond, open, close, reopen: '', comment, history, archived: history.length > 0 && history[history.length - 1].amt === 0, _cl: cl });
+    out.push({ notes, id: uid(), type: normType(base), where: where || base.trim(), cur: guessCur(raw, where), rate: m ? Number(m[1].replace(',', '.')) : pureRate(cond), cond, open, close, reopen: '', comment, history, archived: history.length > 0 && history[history.length - 1].amt === 0, _cl: cl });
   }
   return out;
 }
@@ -184,11 +184,11 @@ function parseWorkbook(buf) {
         const T = todayISO(), live = p.history.length && p.history[p.history.length - 1].amt > 0;
         if (live && p.close && p.close < T && p.open && p.open < p.close) { const term = dnum(p.close) - dnum(p.open); let c = p.close; while (c < T) c = addDays(c, term); p.close = c; p.prolong = true; p.comment = (p.comment ? p.comment + '\n' : '') + 'Срок из таблицы прошёл, а деньги на месте — считаю, что вклад продлён на тот же срок. Поправь, если не так.'; }
       }
-      mv.def = false; mv.sub = st.key; mv.extra = mv.positions.filter(m => !used.has(m)).map(m => { return { ...m, archived: true, excl: true, comment: ('Из «движения средств», в итог не входит (суммы уже учтены в «состоянии»).' + (m.comment ? '\n' + m.comment : '')) }; }); mv.desc = 'справочник переложений: условия и даты из него уже подтянуты к позициям «состояния» (' + hit + ' совпало). Если отметить вместе с «состоянием», остальные записи придут в архив и в итог не войдут — задвоения не будет';
+      mv.def = true; mv.flows = flowsFrom(mv.positions); mv.positions = null; mv.count = mv.flows.length; mv.desc = 'журнал переводов → вкладка «Движение»; условия и даты уже подтянуты к позициям «состояния» (' + hit + ' совпало). Суммы в позиции не попадают — задвоения нет';
     }
     const app = st.positions.filter(p => !p.archived).reduce((s, p) => s + p.history[p.history.length - 1].amt * (p.cur === 'KZT' ? rt.KZT : p.cur === 'USD' ? rt.USD : 1), 0);
     st.meta = meta; st.desc = `сколько где лежит на ${meta.date ? fmtDate(meta.date) : 'последнюю дату'}. В приложении: ${Math.round(app).toLocaleString('ru-RU')} ₽` + (meta.sheetTotal ? `, в твоей таблице «общий итог»: ${Math.round(meta.sheetTotal).toLocaleString('ru-RU')} ₽` : '');
-  } else if (mv) mv.def = true;
+  } else if (mv) { mv.def = true; mv.flows = flowsFrom(mv.positions); }
   for (const f of found) if (f.positions) f.positions.forEach(p => { if (f.key !== (mv && mv.key)) delete p._cl; });
   return found;
 }
@@ -198,7 +198,7 @@ function makeOffers() {
   return [O('Банк Север', 'RUB', 15.5, 1000000, 3), O('Банк Восток', 'RUB', 16.2, 300000, 2), O('Банк Горизонт', 'RUB', 14.8, '', 6), O('Банк Степь', 'KZT', 18, 5000000, 3), O('Банк Алтын', 'KZT', 17.2, '', 6)];
 }
 function migrate(d) {
-  d.tomb = d.tomb || {};
+  d.tomb = d.tomb || {}; d.flows = d.flows || [];
   const s = d.settings = d.settings || {}; s.rates = s.rates || { KZT: 0.16, USD: 82 }; if (s.autolock == null) s.autolock = 3;
   if (!Array.isArray(s.offers)) s.offers = []; if (!('goal' in s)) s.goal = null;
   for (const p of d.positions) { if (!('limit' in p)) p.limit = ''; if (!('cap' in p)) p.cap = p.rate ? guessCap(p) : ''; for (const k of ['rateOver', 'promoTo', 'rateAfter']) if (!(k in p)) p[k] = ''; if (!('prolong' in p)) p.prolong = false; if (!('excl' in p)) p.excl = /реголит/i.test(p.where) && /не входит в итог/i.test(p.comment || ''); }

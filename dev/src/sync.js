@@ -26,7 +26,7 @@ const Sync = (() => {
   }
 
   const fpOf = x => { const { u, ...r } = x; return JSON.stringify(r); };
-  const items = d => { const m = {}; d.positions.forEach(x => m['p:' + x.id] = x); d.notes.forEach(x => m['n:' + x.id] = x); return m; };
+  const items = d => { const m = {}; d.positions.forEach(x => m['p:' + x.id] = x); d.notes.forEach(x => m['n:' + x.id] = x); (d.flows || []).forEach(x => m['f:' + x.id] = x); return m; };
   const snap = d => { const m = {}; const it = items(d); for (const k in it) m[k] = fpOf(it[k]); m.s = fpOf(d.settings); return m; };
 
   /* вызывать перед сохранением: ставит метки времени изменённым, помнит удалённое */
@@ -41,13 +41,13 @@ const Sync = (() => {
   function merge(a, b) {
     const out = JSON.parse(JSON.stringify(a)), ta = { ...(a.tomb || {}) };
     for (const k in (b.tomb || {})) ta[k] = Math.max(ta[k] || 0, b.tomb[k]);
-    const A = items(a), B = items(b), P = [], N = [];
+    const A = items(a), B = items(b), P = [], N = [], F = [];
     for (const k of new Set([...Object.keys(A), ...Object.keys(B)])) {
       const ia = A[k], ib = B[k]; const pick = !ia ? ib : !ib ? ia : ((ib.u || 0) > (ia.u || 0) ? ib : ia);
       if (ta[k] && ta[k] >= (pick.u || 0)) continue;
-      (k[0] === 'p' ? P : N).push(JSON.parse(JSON.stringify(pick)));
+      (k[0] === 'p' ? P : k[0] === 'f' ? F : N).push(JSON.parse(JSON.stringify(pick)));
     }
-    out.positions = P; out.notes = N; out.tomb = ta;
+    out.positions = P; out.notes = N; out.flows = F; out.tomb = ta;
     if ((b.settings.u || 0) > (a.settings.u || 0)) out.settings = { ...b.settings, autolock: a.settings.autolock };
     return out;
   }

@@ -269,3 +269,12 @@ kbd{border:1px solid var(--line);border-radius:6px;padding:0 6px;font:11px ui-mo
 .bdjump.cc-RUB{--cc:var(--cc-RUB)}.bdjump.cc-KZT{--cc:var(--cc-KZT)}.bdjump.cc-USD{--cc:var(--cc-USD)}
 @media (max-width:760px){.ctiles{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.ctile{padding:10px 9px 6px;border-radius:13px}.ct-v{font-size:16px}.ct-n{font-size:11px}.ct-s{font-size:10.5px;padding:1px 6px}.ct-m{font-size:11px;line-height:1.35}.ctile .spark{height:22px}.bd-w{min-height:0;max-height:calc(100vh - 300px)}}
 .hide .gnum.money{background:none!important;-webkit-text-fill-color:transparent}.hide .gnum.money.rv{background:linear-gradient(90deg,var(--acc),var(--c2))!important;-webkit-background-clip:text!important;background-clip:text!important}
+
+.chip{border:1px solid var(--line);background:var(--card);color:var(--mut);padding:7px 13px;border-radius:99px;cursor:pointer;font-size:14px}
+.chip.on{border-color:var(--cc,var(--acc));color:var(--cc,var(--acc));background:color-mix(in srgb,var(--cc,var(--acc)) 12%,transparent)}
+.flsum{gap:10px;margin:2px 0 10px;flex-wrap:wrap;align-items:center}.flsum .tag{color:var(--cc);font-size:13px}
+.flmon{margin:14px 2px 6px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut)}
+.item.fl{border-left:3px solid var(--cc);padding:11px 14px}
+.fld{min-width:74px;color:var(--mut);font-size:13px}.flw{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:baseline;font-weight:600}
+.fla{color:var(--cc)}.flnote{flex-basis:100%;font-weight:400}.fls{font-weight:700;color:var(--cc);white-space:nowrap}
+@media(max-width:760px){.item.fl{flex-wrap:wrap}.fld{min-width:100%}.fls{margin-left:auto}}
