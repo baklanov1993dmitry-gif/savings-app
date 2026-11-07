@@ -173,18 +173,18 @@ function parseWorkbook(buf) {
     st.def = true; const meta = st.positions.meta || {}; const rt = { KZT: meta.rates && meta.rates.KZT || 0.16, USD: meta.rates && meta.rates.USD || 82 };
     if (mv) {
       const norm = s => String(s).toLowerCase().replace(/\(.*?\)/g, '').replace(/^кз_/, '').replace(/[^a-zа-яё0-9]+/g, ' ').trim();
-      let hit = 0;
+      let hit = 0; const used = new Set();
       for (const p of st.positions) {
         const k = norm(p.where); if (k.length < 3) continue;
         const ms = mv.positions.filter(m => { const w = norm(m.where); return w && (w.includes(k) || k.includes(w)); }).sort((a, b) => (a.open || '') < (b.open || '') ? -1 : 1);
-        const m = ms[ms.length - 1]; if (!m) continue; hit++;
+        const m = ms[ms.length - 1]; if (!m) continue; hit++; used.add(m);
         p.cond = m.cond; p.rate = m.rate; p.open = m.open; p.close = m.close; p.comment = m.comment;
         if (/^Счёт/.test(p.type) && /вклад|депозит/i.test(m.type + ' ' + m.comment)) p.type = 'Банковский вклад';
         if (p.rate) { p.cap = guessCap(p); p.rateOver = ''; p.promoTo = ''; p.rateAfter = ''; }
         const T = todayISO(), live = p.history.length && p.history[p.history.length - 1].amt > 0;
         if (live && p.close && p.close < T && p.open && p.open < p.close) { const term = dnum(p.close) - dnum(p.open); let c = p.close; while (c < T) c = addDays(c, term); p.close = c; p.prolong = true; p.comment = (p.comment ? p.comment + '\n' : '') + 'Срок из таблицы прошёл, а деньги на месте — считаю, что вклад продлён на тот же срок. Поправь, если не так.'; }
       }
-      mv.def = false; mv.sub = st.key; mv.desc = 'справочник переложений: условия и даты из него уже подтянуты к позициям «состояния» (' + hit + ' совпало). Отмечать вместе с «состоянием» нельзя — деньги задвоятся';
+      mv.def = false; mv.sub = st.key; mv.extra = mv.positions.filter(m => !used.has(m)).map(m => { return { ...m, archived: true, excl: true, comment: ('Из «движения средств», в итог не входит (суммы уже учтены в «состоянии»).' + (m.comment ? '\n' + m.comment : '')) }; }); mv.desc = 'справочник переложений: условия и даты из него уже подтянуты к позициям «состояния» (' + hit + ' совпало). Если отметить вместе с «состоянием», остальные записи придут в архив и в итог не войдут — задвоения не будет';
     }
     const app = st.positions.filter(p => !p.archived).reduce((s, p) => s + p.history[p.history.length - 1].amt * (p.cur === 'KZT' ? rt.KZT : p.cur === 'USD' ? rt.USD : 1), 0);
     st.meta = meta; st.desc = `сколько где лежит на ${meta.date ? fmtDate(meta.date) : 'последнюю дату'}. В приложении: ${Math.round(app).toLocaleString('ru-RU')} ₽` + (meta.sheetTotal ? `, в твоей таблице «общий итог»: ${Math.round(meta.sheetTotal).toLocaleString('ru-RU')} ₽` : '');
