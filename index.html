@@ -296,6 +296,12 @@ kbd{border:1px solid var(--line);border-radius:6px;padding:0 6px;font:11px ui-mo
 .bd-x{margin-left:5px;opacity:.35;cursor:pointer;font-size:12px}.bd-h:hover .bd-x{opacity:.9}.bd-x:hover{color:var(--bad,#ff6b6b)}
 .bcl{max-height:55vh;overflow:auto}.bcr{padding:6px 2px;gap:10px;cursor:pointer}.bcr input{accent-color:var(--acc)}
 
+.fltp{font-size:12px;font-weight:600;padding:1px 8px;border-radius:99px;background:var(--card2,rgba(127,127,127,.15))}
+.fltp.in{color:#2fbf8a}.fltp.out{color:#e0645c}.fltp.move{color:var(--mut)}
+.fls.in{color:#2fbf8a}.fls.out{color:#e0645c}
+.flsrc{font-size:11px;font-weight:400;color:var(--mut);border:1px dashed var(--line,rgba(127,127,127,.4));border-radius:6px;padding:0 6px}
+.fold{display:block;width:100%;margin:10px 0;padding:9px;border:1px dashed var(--line,rgba(127,127,127,.5));border-radius:10px;background:none;color:var(--mut);font-size:13px;cursor:pointer}
+
 </style>
 </head>
 <body>
@@ -596,11 +602,11 @@ function parseWorkbook(buf) {
         const T = todayISO(), live = p.history.length && p.history[p.history.length - 1].amt > 0;
         if (live && p.close && p.close < T && p.open && p.open < p.close) { const term = dnum(p.close) - dnum(p.open); let c = p.close; while (c < T) c = addDays(c, term); p.close = c; p.prolong = true; p.comment = (p.comment ? p.comment + '\n' : '') + 'Срок из таблицы прошёл, а деньги на месте — считаю, что вклад продлён на тот же срок. Поправь, если не так.'; }
       }
-      mv.def = true; { const lastMv = mv.positions.flatMap(q => q.history.map(h => h.d)).sort().pop() || ''; mv.flows = flowsFrom(mv.positions).concat(flowsFrom(st.positions).filter(f => f.d > lastMv)); } mv.positions = null; mv.count = mv.flows.length; mv.desc = 'журнал переводов → вкладка «Движение»; условия и даты уже подтянуты к позициям «состояния» (' + hit + ' совпало). Суммы в позиции не попадают — задвоения нет';
+      mv.def = true; { const lastMv = mv.positions.flatMap(q => q.history.map(h => h.d)).sort().pop() || ''; mv.flows = flowsFrom(mv.positions).map(f => (f.src = 'xls', f)).concat(flowsFrom(st.positions).filter(f => f.d > lastMv).map(f => (f.src = 'calc', f))); } mv.positions = null; mv.count = mv.flows.length; mv.desc = 'журнал переводов → вкладка «Движение»; условия и даты уже подтянуты к позициям «состояния» (' + hit + ' совпало). Суммы в позиции не попадают — задвоения нет';
     }
     const app = st.positions.filter(p => !p.archived).reduce((s, p) => s + p.history[p.history.length - 1].amt * (p.cur === 'KZT' ? rt.KZT : p.cur === 'USD' ? rt.USD : 1), 0);
     st.meta = meta; st.desc = `сколько где лежит на ${meta.date ? fmtDate(meta.date) : 'последнюю дату'}. В приложении: ${Math.round(app).toLocaleString('ru-RU')} ₽` + (meta.sheetTotal ? `, в твоей таблице «общий итог»: ${Math.round(meta.sheetTotal).toLocaleString('ru-RU')} ₽` : '');
-  } else if (mv) { mv.def = true; mv.flows = flowsFrom(mv.positions); }
+  } else if (mv) { mv.def = true; mv.flows = flowsFrom(mv.positions).map(f => (f.src = 'xls', f)); }
   for (const f of found) if (f.positions) f.positions.forEach(p => { if (f.key !== (mv && mv.key)) delete p._cl; });
   return found;
 }
@@ -1554,31 +1560,38 @@ function flowsFrom(positions) {
   const seen = new Set();
   return res.filter(f => { const k = flKey(f); if (seen.has(k)) return false; seen.add(k); return true; }).sort((a, b) => a.d < b.d ? 1 : -1);
 }
+const flType = f => f.from && f.to ? 'move' : f.to ? 'in' : 'out';
+const FLT = { move: 'Перевод', in: 'Пополнение', out: 'Снятие' };
+const FLSRC = { xls: ['из Excel', 'Записано в листе «движение средств» твоего Excel'], calc: ['вычислено', 'Программа заметила, что сумма в одном месте упала или выросла, и предположила движение'], hand: ['вручную', 'Добавлено тобой в приложении'] };
+const flDis = f => f.src === 'calc' && !(f.from && f.to);
 const flKey = f => [f.d, f.from, f.to, f.amt, f.cur].join('|');
 const flPlaces = () => [...new Set(S.data.positions.filter(p => !p.excl).map(p => p.where).concat((S.data.flows || []).flatMap(f => [f.from, f.to])).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ru'));
 function flFiltered() {
   const q = S.fl.q.toLowerCase();
-  return (S.data.flows || []).filter(f => (!S.fl.cur || f.cur === S.fl.cur) && (!S.fl.p || f.from === S.fl.p || f.to === S.fl.p) && (!q || (f.from + ' ' + f.to + ' ' + (f.note || '')).toLowerCase().includes(q))).sort((a, b) => a.d < b.d ? 1 : a.d > b.d ? -1 : 0);
+  return (S.data.flows || []).filter(f => (S.fl.dis ? flDis(f) : !flDis(f)) && (!S.fl.t || flType(f) === S.fl.t) && (!S.fl.cur || f.cur === S.fl.cur) && (!S.fl.p || f.from === S.fl.p || f.to === S.fl.p) && (!q || (f.from + ' ' + f.to + ' ' + (f.note || '')).toLowerCase().includes(q))).sort((a, b) => a.d < b.d ? 1 : a.d > b.d ? -1 : 0);
 }
 function flList() {
   const L = flFiltered(); if (!L.length) return '<div class="card empty"><p>Переводов пока нет. Нажми «+ Перевод» или импортируй лист «движение средств».</p></div>';
   let h = '', mon = '';
   for (const f of L) {
     const m = f.d.slice(0, 7); if (m !== mon) { mon = m; const [y, mm] = m.split('-'); h += `<div class="flmon">${['январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь'][+mm - 1]} ${y}</div>`; }
+    const t = flType(f), sg = t === 'in' ? '+' : t === 'out' ? '−' : '', sr = FLSRC[f.src || 'xls'];
     h += `<div class="item fl" data-a="fedit" data-id="${f.id}" style="--cc:var(--cc-${f.cur})"><div class="fld">${fmtDate(f.d)}</div>
-    <div class="grow flw"><span class="${f.from ? '' : 'mut'}">${esc(f.from || 'вне учёта')}</span><span class="fla">→</span><span class="${f.to ? '' : 'mut'}">${esc(f.to || 'вне учёта')}</span>${f.note ? `<div class="sm mut flnote">${esc(f.note)}</div>` : ''}</div>
-    <div class="fls money">${fmt(f.amt, f.cur)}</div>${f.applied ? '' : `<button class="btn sm" data-a="fapply" data-id="${f.id}" title="Изменить суммы в позициях">Применить</button>`}</div>`;
+    <div class="grow flw"><span class="fltp ${t}">${FLT[t]}</span><span>${t === 'move' ? esc(f.from) + '</span><span class="fla">→</span><span>' + esc(f.to) : esc(f.to || f.from)}</span><span class="flsrc" title="${esc(sr[1])}">${sr[0]}</span>${f.note ? `<div class="sm mut flnote">${esc(f.note)}</div>` : ''}</div>
+    <div class="fls money ${t}">${sg}${fmt(f.amt, f.cur)}</div>${f.applied ? '' : `<button class="btn sm" data-a="fapply" data-id="${f.id}" title="Изменить суммы в позициях">Применить</button>`}</div>`;
   }
   return h;
 }
 function viewFlows() {
   const L = flFiltered(), by = {}; L.forEach(f => by[f.cur] = (by[f.cur] || 0) + f.amt);
   const pl = flPlaces();
-  return `<div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:10px"><button class="btn pri" data-a="fnew">+ Перевод</button>
-    ${['', 'RUB', 'KZT', 'USD'].map(c => `<button class="chip ${S.fl.cur === c ? 'on' : ''}" data-a="flc" data-id="${c}" ${c ? `style="--cc:var(--cc-${c})"` : ''}>${c ? SYM[c] : 'Все'}</button>`).join('')}
+  return `<p class="mut sm" style="margin:0 0 10px">Как деньги двигались: пополнил, снял или переложил между местами. Метка рядом с местом показывает, откуда запись.</p><div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:10px"><button class="btn pri" data-a="fnew">+ Перевод</button>
+    ${[['', 'Все'], ['in', 'Пополнения'], ['out', 'Снятия'], ['move', 'Переводы']].map(([k, t]) => `<button class="chip ${S.fl.t === k ? 'on' : ''}" data-a="flt" data-id="${k}">${t}</button>`).join('')}
+    ${['', 'RUB', 'KZT', 'USD'].map(c => `<button class="chip ${S.fl.cur === c ? 'on' : ''}" data-a="flc" data-id="${c}" ${c ? `style="--cc:var(--cc-${c})"` : ''}>${c ? SYM[c] : 'Все валюты'}</button>`).join('')}
     <select class="inp" data-i="flp" style="max-width:220px"><option value="">Все места</option>${pl.map(x => `<option ${S.fl.p === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select>
     <input class="inp grow" data-i="flq" placeholder="Поиск по местам и заметкам" value="${esc(S.fl.q)}" style="min-width:140px"></div>
   <div class="row flsum" id="flsum">${Object.keys(by).map(c => `<span class="tag" style="--cc:var(--cc-${c})">${SYM[c]} <b class="money">${fmt(by[c], c)}</b></span>`).join('')}<span class="mut sm">${L.length} перев.</span></div>
+  ${(() => { const n = (S.data.flows || []).filter(flDis).length; return n || S.fl.dis ? `<button class="fold" data-a="fdis">${S.fl.dis ? '← К основным записям' : 'Спорные: ' + n + ' · программа не уверена, куда ушли деньги · разобрать'}</button>` : ''; })()}
   <div id="fllist">${flList()}</div>`;
 }
 function flEdit(f) {
@@ -1597,7 +1610,7 @@ function flEdit(f) {
       const b = e.target.closest('[data-x]'); if (!b) return; if (b.dataset.x === 'c') return closeModal();
       if (b.dataset.x === 'del') { const old = f; S.data.flows = S.data.flows.filter(z => z.id !== f.id); await persist(); closeModal(); render(); undoToast('Перевод удалён', async () => { S.data.flows.push(old); await persist(); render(); }); return; }
       const amt = num($('#fa', ov).value); if (!amt || amt <= 0) return toast('Укажи сумму');
-      const nf = { ...d, d: $('#fd', ov).value || todayISO(), from: $('#ff', ov).value.trim(), to: $('#ft', ov).value.trim(), amt, cur: $('#fc', ov).value, note: $('#fn', ov).value.trim() };
+      const nf = { ...d, d: $('#fd', ov).value || todayISO(), from: $('#ff', ov).value.trim(), to: $('#ft', ov).value.trim(), amt, cur: $('#fc', ov).value, note: $('#fn', ov).value.trim(), src: isNew ? 'hand' : (d.src || 'hand') };
       if (!nf.from && !nf.to) return toast('Укажи хотя бы одно место');
       S.data.flows = S.data.flows || []; if (isNew) S.data.flows.push(nf); else Object.assign(S.data.flows.find(z => z.id === d.id), nf);
       const ap = $('#fap', ov); if (ap && ap.checked) flApply(nf);
@@ -1716,7 +1729,7 @@ const LS = {
   set(k, v) { try { localStorage.setItem(k, v); } catch (e) { mem[k] = v; S.memOnly = true; } },
   del(k) { try { localStorage.removeItem(k); } catch (e) { delete mem[k]; } },
 };
-const S = { fl: { cur: '', p: '', q: '' }, data: null, session: null, tab: 'home', filter: 'Все', q: '', range: '12', dmode: 'type', memOnly: false, recoveryFlow: false, fc: true, hday: null, fresh: true, rc: false, idleAt: 0 };
+const S = { fl: { cur: '', p: '', q: '', t: '', dis: false }, data: null, session: null, tab: 'home', filter: 'Все', q: '', range: '12', dmode: 'type', memOnly: false, recoveryFlow: false, fc: true, hday: null, fresh: true, rc: false, idleAt: 0 };
 const $app = document.getElementById('app');
 const $ = (s, r = document) => r.querySelector(s);
 const num = s => { const v = Number(String(s).replace(/\s/g, '').replace(',', '.')); return isNaN(v) ? null : v; };
@@ -1887,7 +1900,7 @@ function render() {
     ${TABS.map(([k, t, i]) => `<button class="nv ${S.tab === k ? 'on' : ''}" data-a="tab" data-id="${k}">${ic(i)}${t}${k === 'dates' && urgent ? `<span class="tag bad" style="margin-left:auto">${urgent}</span>` : ''}</button>`).join('')}
     <div class="grow"></div><button class="nv" data-a="palette">${ic('search')}Поиск <kbd style="margin-left:auto">Ctrl K</kbd></button></aside>
     <main class="main ${full ? 'fresh' : ''} ${S.tab === 'board' ? 'wide' : ''}">${S.memOnly ? '<div class="banner">Хранилище браузера недоступно — данные живут только до закрытия вкладки. Сделай экспорт копии в Настройках.</div>' : ''}
-    <div class="top"><h1>${TITLES[S.tab]}</h1><span class="tag" title="версия приложения">v4.10 · 08.11</span>
+    <div class="top"><h1>${TITLES[S.tab]}</h1><span class="tag" title="версия приложения">v4.11 · 08.11</span>
       <button class="ic" data-a="palette" title="Поиск и команды (Ctrl+K)">${ic('search')}</button>
       <button class="ic" data-a="hide" title="Скрыть суммы">${ic(d.settings.hide ? 'eyeoff' : 'eye')}</button>
       <button class="ic" data-a="lock" title="Заблокировать">${ic('lock')}</button></div>
@@ -2075,7 +2088,7 @@ function viewSet() {
     <button class="btn" data-a="clrpos">Очистить все позиции</button>
     <button class="btn" data-a="demo">Добавить демо-данные</button>
     <div class="sm mut">Excel читается прямо в браузере и никуда не отправляется. Копия — это зашифрованный файл: без пароля или ключа восстановления это набор случайных байт.</div></div>
-  <div class="card col" style="grid-column:1/-1"><h3>Как это защищено <span class="tag">v4.10</span></h3><div class="sm mut">Мастер-пароль → PBKDF2‑SHA256, ${Vault.ITER_PW.toLocaleString('ru-RU')} итераций → ключ, которым открывается случайный ключ данных. Данные шифруются AES‑256‑GCM (с проверкой целостности). Пароль не хранится. В браузере лежит только шифротекст. Лимит попыток и задержка защищают от случайного подбора на устройстве, а от кражи файла защищает сила пароля.</div></div></div>`;
+  <div class="card col" style="grid-column:1/-1"><h3>Как это защищено <span class="tag">v4.11</span></h3><div class="sm mut">Мастер-пароль → PBKDF2‑SHA256, ${Vault.ITER_PW.toLocaleString('ru-RU')} итераций → ключ, которым открывается случайный ключ данных. Данные шифруются AES‑256‑GCM (с проверкой целостности). Пароль не хранится. В браузере лежит только шифротекст. Лимит попыток и задержка защищают от случайного подбора на устройстве, а от кражи файла защищает сила пароля.</div></div></div>`;
 }
 function openChangePw(forced) {
   modal(`<h3>${forced ? 'Задай новый мастер-пароль' : 'Смена пароля'}</h3><p class="sm mut">${forced ? 'Ты вошёл по ключу восстановления — старый пароль утерян, поставь новый.' : 'Ключ восстановления остаётся прежним.'}</p><form id="cf" class="col"><input class="inp" id="n1" type="password" placeholder="Новый пароль" autocomplete="new-password"><div class="meter" id="mt">${meterHTML(0)}</div><input class="inp" id="n2" type="password" placeholder="Повтори" autocomplete="new-password"><div class="err" id="er"></div><div class="row" style="justify-content:flex-end">${forced ? '' : '<button type="button" class="btn" data-x="c">Отмена</button>'}<button class="btn pri">Сохранить</button></div></form>`, ov => {
@@ -2133,6 +2146,8 @@ async function actions(a, el) {
     case 'fedit': flEdit((S.data.flows || []).find(f => f.id === id)); break;
     case 'fapply': { const f = S.data.flows.find(z => z.id === id); if (!f) break; flApply(f); await persist(); render(); break; }
     case 'flc': S.fl.cur = id; render(); break;
+    case 'flt': S.fl.t = id; render(); break;
+    case 'fdis': S.fl.dis = !S.fl.dis; render(); break;
     case 'addNote': { const t = $('#nt').value.trim(); if (!t) return; S.data.notes.push({ id: uid(), d: $('#nd').value || todayISO(), text: t }); await persist(); render(); break; }
     case 'delNote': { const n0 = S.data.notes.find(n => n.id === id); if (!n0) break; S.data.notes = S.data.notes.filter(n => n.id !== id); await persist(); render(); undoToast('Заметка удалена', async () => { S.data.notes.push(n0); await persist(); render(); }); break; }
     case 'theme': document.documentElement.dataset.theme = id; LS.set('sv_theme', id); render(); break;
@@ -2176,7 +2191,7 @@ async function doXlsx(f) {
   let found; try { found = parseWorkbook(await f.arrayBuffer()); } catch (e) { closeModal('ovl', true); return toast('Не смог прочитать файл: ' + e.message); }
   closeModal('ovl', true);
   if (!found.length) return toast('Не нашёл знакомых листов («движение средств», «состояние средств», «Мысли»)');
-  modal(`<div class="row" style="margin-bottom:8px"><h3 class="grow">Импорт из Excel <span class="tag">v4.10</span></h3><button class="ic" data-x="c">${ic('x')}</button></div><p class="sm mut">Найдено в файле. Отметь, что добавить (всё добавляется к существующему):</p>
+  modal(`<div class="row" style="margin-bottom:8px"><h3 class="grow">Импорт из Excel <span class="tag">v4.11</span></h3><button class="ic" data-x="c">${ic('x')}</button></div><p class="sm mut">Найдено в файле. Отметь, что добавить (всё добавляется к существующему):</p>
   ${found.map((x, i) => `<label class="card row" style="align-items:flex-start;margin-bottom:8px"><input type="checkbox" data-k="${i}" ${x.positions ? 'data-pos="1"' : ''} ${x.def && x.count ? 'checked' : ''} ${x.count ? '' : 'disabled'}><div><b>${esc(x.title)}</b> <span class="tag">${x.count}</span><div class="sm mut">${esc(x.desc)}</div></div></label>`).join('')}
   ${found.some(f => f.positions && f.positions.some(q => q._cl)) ? `<label class="row sm" style="margin-top:6px;align-items:flex-start"><input type="checkbox" id="autocl" checked><span>Закрыть вклады, которые в последнем столбце пустые, а срок уже вышел — деньги переложены в другие строки (иначе посчитаются дважды). Таких: <b>${found.reduce((s, f) => s + (f.positions ? f.positions.filter(q => q._cl).length : 0), 0)}</b></span></label>` : ''}
   <div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn pri" data-x="go">Импортировать</button></div>`, ov => {

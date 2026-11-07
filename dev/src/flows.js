@@ -35,31 +35,38 @@ function flowsFrom(positions) {
   const seen = new Set();
   return res.filter(f => { const k = flKey(f); if (seen.has(k)) return false; seen.add(k); return true; }).sort((a, b) => a.d < b.d ? 1 : -1);
 }
+const flType = f => f.from && f.to ? 'move' : f.to ? 'in' : 'out';
+const FLT = { move: 'Перевод', in: 'Пополнение', out: 'Снятие' };
+const FLSRC = { xls: ['из Excel', 'Записано в листе «движение средств» твоего Excel'], calc: ['вычислено', 'Программа заметила, что сумма в одном месте упала или выросла, и предположила движение'], hand: ['вручную', 'Добавлено тобой в приложении'] };
+const flDis = f => f.src === 'calc' && !(f.from && f.to);
 const flKey = f => [f.d, f.from, f.to, f.amt, f.cur].join('|');
 const flPlaces = () => [...new Set(S.data.positions.filter(p => !p.excl).map(p => p.where).concat((S.data.flows || []).flatMap(f => [f.from, f.to])).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ru'));
 function flFiltered() {
   const q = S.fl.q.toLowerCase();
-  return (S.data.flows || []).filter(f => (!S.fl.cur || f.cur === S.fl.cur) && (!S.fl.p || f.from === S.fl.p || f.to === S.fl.p) && (!q || (f.from + ' ' + f.to + ' ' + (f.note || '')).toLowerCase().includes(q))).sort((a, b) => a.d < b.d ? 1 : a.d > b.d ? -1 : 0);
+  return (S.data.flows || []).filter(f => (S.fl.dis ? flDis(f) : !flDis(f)) && (!S.fl.t || flType(f) === S.fl.t) && (!S.fl.cur || f.cur === S.fl.cur) && (!S.fl.p || f.from === S.fl.p || f.to === S.fl.p) && (!q || (f.from + ' ' + f.to + ' ' + (f.note || '')).toLowerCase().includes(q))).sort((a, b) => a.d < b.d ? 1 : a.d > b.d ? -1 : 0);
 }
 function flList() {
   const L = flFiltered(); if (!L.length) return '<div class="card empty"><p>Переводов пока нет. Нажми «+ Перевод» или импортируй лист «движение средств».</p></div>';
   let h = '', mon = '';
   for (const f of L) {
     const m = f.d.slice(0, 7); if (m !== mon) { mon = m; const [y, mm] = m.split('-'); h += `<div class="flmon">${['январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь'][+mm - 1]} ${y}</div>`; }
+    const t = flType(f), sg = t === 'in' ? '+' : t === 'out' ? '−' : '', sr = FLSRC[f.src || 'xls'];
     h += `<div class="item fl" data-a="fedit" data-id="${f.id}" style="--cc:var(--cc-${f.cur})"><div class="fld">${fmtDate(f.d)}</div>
-    <div class="grow flw"><span class="${f.from ? '' : 'mut'}">${esc(f.from || 'вне учёта')}</span><span class="fla">→</span><span class="${f.to ? '' : 'mut'}">${esc(f.to || 'вне учёта')}</span>${f.note ? `<div class="sm mut flnote">${esc(f.note)}</div>` : ''}</div>
-    <div class="fls money">${fmt(f.amt, f.cur)}</div>${f.applied ? '' : `<button class="btn sm" data-a="fapply" data-id="${f.id}" title="Изменить суммы в позициях">Применить</button>`}</div>`;
+    <div class="grow flw"><span class="fltp ${t}">${FLT[t]}</span><span>${t === 'move' ? esc(f.from) + '</span><span class="fla">→</span><span>' + esc(f.to) : esc(f.to || f.from)}</span><span class="flsrc" title="${esc(sr[1])}">${sr[0]}</span>${f.note ? `<div class="sm mut flnote">${esc(f.note)}</div>` : ''}</div>
+    <div class="fls money ${t}">${sg}${fmt(f.amt, f.cur)}</div>${f.applied ? '' : `<button class="btn sm" data-a="fapply" data-id="${f.id}" title="Изменить суммы в позициях">Применить</button>`}</div>`;
   }
   return h;
 }
 function viewFlows() {
   const L = flFiltered(), by = {}; L.forEach(f => by[f.cur] = (by[f.cur] || 0) + f.amt);
   const pl = flPlaces();
-  return `<div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:10px"><button class="btn pri" data-a="fnew">+ Перевод</button>
-    ${['', 'RUB', 'KZT', 'USD'].map(c => `<button class="chip ${S.fl.cur === c ? 'on' : ''}" data-a="flc" data-id="${c}" ${c ? `style="--cc:var(--cc-${c})"` : ''}>${c ? SYM[c] : 'Все'}</button>`).join('')}
+  return `<p class="mut sm" style="margin:0 0 10px">Как деньги двигались: пополнил, снял или переложил между местами. Метка рядом с местом показывает, откуда запись.</p><div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:10px"><button class="btn pri" data-a="fnew">+ Перевод</button>
+    ${[['', 'Все'], ['in', 'Пополнения'], ['out', 'Снятия'], ['move', 'Переводы']].map(([k, t]) => `<button class="chip ${S.fl.t === k ? 'on' : ''}" data-a="flt" data-id="${k}">${t}</button>`).join('')}
+    ${['', 'RUB', 'KZT', 'USD'].map(c => `<button class="chip ${S.fl.cur === c ? 'on' : ''}" data-a="flc" data-id="${c}" ${c ? `style="--cc:var(--cc-${c})"` : ''}>${c ? SYM[c] : 'Все валюты'}</button>`).join('')}
     <select class="inp" data-i="flp" style="max-width:220px"><option value="">Все места</option>${pl.map(x => `<option ${S.fl.p === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select>
     <input class="inp grow" data-i="flq" placeholder="Поиск по местам и заметкам" value="${esc(S.fl.q)}" style="min-width:140px"></div>
   <div class="row flsum" id="flsum">${Object.keys(by).map(c => `<span class="tag" style="--cc:var(--cc-${c})">${SYM[c]} <b class="money">${fmt(by[c], c)}</b></span>`).join('')}<span class="mut sm">${L.length} перев.</span></div>
+  ${(() => { const n = (S.data.flows || []).filter(flDis).length; return n || S.fl.dis ? `<button class="fold" data-a="fdis">${S.fl.dis ? '← К основным записям' : 'Спорные: ' + n + ' · программа не уверена, куда ушли деньги · разобрать'}</button>` : ''; })()}
   <div id="fllist">${flList()}</div>`;
 }
 function flEdit(f) {
@@ -78,7 +85,7 @@ function flEdit(f) {
       const b = e.target.closest('[data-x]'); if (!b) return; if (b.dataset.x === 'c') return closeModal();
       if (b.dataset.x === 'del') { const old = f; S.data.flows = S.data.flows.filter(z => z.id !== f.id); await persist(); closeModal(); render(); undoToast('Перевод удалён', async () => { S.data.flows.push(old); await persist(); render(); }); return; }
       const amt = num($('#fa', ov).value); if (!amt || amt <= 0) return toast('Укажи сумму');
-      const nf = { ...d, d: $('#fd', ov).value || todayISO(), from: $('#ff', ov).value.trim(), to: $('#ft', ov).value.trim(), amt, cur: $('#fc', ov).value, note: $('#fn', ov).value.trim() };
+      const nf = { ...d, d: $('#fd', ov).value || todayISO(), from: $('#ff', ov).value.trim(), to: $('#ft', ov).value.trim(), amt, cur: $('#fc', ov).value, note: $('#fn', ov).value.trim(), src: isNew ? 'hand' : (d.src || 'hand') };
       if (!nf.from && !nf.to) return toast('Укажи хотя бы одно место');
       S.data.flows = S.data.flows || []; if (isNew) S.data.flows.push(nf); else Object.assign(S.data.flows.find(z => z.id === d.id), nf);
       const ap = $('#fap', ov); if (ap && ap.checked) flApply(nf);
