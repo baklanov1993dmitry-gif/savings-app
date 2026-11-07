@@ -294,3 +294,8 @@ kbd{border:1px solid var(--line);border-radius:6px;padding:0 6px;font:11px ui-mo
 .vd{margin-top:10px;color:var(--mut);line-height:1.5}
 .vc-g{background:color-mix(in srgb,var(--ok) 12%,var(--card));border-color:color-mix(in srgb,var(--ok) 40%,transparent)}
 .vc-w{background:color-mix(in srgb,var(--warn) 13%,var(--card));border-color:color-mix(in srgb,var(--warn) 45%,transparent)}
+
+.ntk{border:0;border-radius:99px;padding:1px 9px;font-size:12px;font-weight:600;cursor:pointer;background:rgba(127,127,127,.18);color:var(--tx)}
+.ntk.nk-dec{background:color-mix(in srgb,var(--ok) 20%,transparent);color:var(--ok)}.ntk.nk-idea{background:color-mix(in srgb,var(--warn) 20%,transparent);color:var(--warn)}.ntk.nk-cond{background:color-mix(in srgb,#5aa9ff 20%,transparent);color:#5aa9ff}
+.nth{gap:8px;flex-wrap:wrap;align-items:center}.ntp{font-size:12px;max-width:150px;background:none;border:1px dashed var(--line,rgba(127,127,127,.4));border-radius:6px;color:var(--mut);padding:1px 4px}
+.item.nt.pin{border-color:var(--warn)}.ic.on{color:var(--warn)}

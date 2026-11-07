@@ -309,6 +309,11 @@ kbd{border:1px solid var(--line);border-radius:6px;padding:0 6px;font:11px ui-mo
 .vc-g{background:color-mix(in srgb,var(--ok) 12%,var(--card));border-color:color-mix(in srgb,var(--ok) 40%,transparent)}
 .vc-w{background:color-mix(in srgb,var(--warn) 13%,var(--card));border-color:color-mix(in srgb,var(--warn) 45%,transparent)}
 
+.ntk{border:0;border-radius:99px;padding:1px 9px;font-size:12px;font-weight:600;cursor:pointer;background:rgba(127,127,127,.18);color:var(--tx)}
+.ntk.nk-dec{background:color-mix(in srgb,var(--ok) 20%,transparent);color:var(--ok)}.ntk.nk-idea{background:color-mix(in srgb,var(--warn) 20%,transparent);color:var(--warn)}.ntk.nk-cond{background:color-mix(in srgb,#5aa9ff 20%,transparent);color:#5aa9ff}
+.nth{gap:8px;flex-wrap:wrap;align-items:center}.ntp{font-size:12px;max-width:150px;background:none;border:1px dashed var(--line,rgba(127,127,127,.4));border-radius:6px;color:var(--mut);padding:1px 4px}
+.item.nt.pin{border-color:var(--warn)}.ic.on{color:var(--warn)}
+
 </style>
 </head>
 <body>
@@ -1763,7 +1768,7 @@ const LS = {
   set(k, v) { try { localStorage.setItem(k, v); } catch (e) { mem[k] = v; S.memOnly = true; } },
   del(k) { try { localStorage.removeItem(k); } catch (e) { delete mem[k]; } },
 };
-const S = { fl: { cur: '', p: '', q: '', t: '', dis: false }, data: null, session: null, tab: 'home', filter: 'Все', q: '', range: '12', dmode: 'type', memOnly: false, recoveryFlow: false, fc: true, hday: null, fresh: true, rc: false, idleAt: 0 };
+const S = { nk: '', nnew: 'dec', fl: { cur: '', p: '', q: '', t: '', dis: false }, data: null, session: null, tab: 'home', filter: 'Все', q: '', range: '12', dmode: 'type', memOnly: false, recoveryFlow: false, fc: true, hday: null, fresh: true, rc: false, idleAt: 0 };
 const $app = document.getElementById('app');
 const $ = (s, r = document) => r.querySelector(s);
 const num = s => { const v = Number(String(s).replace(/\s/g, '').replace(',', '.')); return isNaN(v) ? null : v; };
@@ -1780,7 +1785,7 @@ const ICO = {
   cal: '<rect x="3" y="4.5" width="18" height="16.5" rx="3"/><path d="M3 10h18M8 2.5v4M16 2.5v4"/>',
   note: '<path d="M5 3h10l4 4v14H5z"/><path d="M14 3v5h5M8 13h8M8 17h6"/>',
   gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/>',
-  plus: '<path d="M12 5v14M5 12h14"/>', x: '<path d="M6 6l12 12M18 6L6 18"/>', search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>', star: '<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/>', x: '<path d="M6 6l12 12M18 6L6 18"/>', search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>',
   down: '<path d="M12 4v12M6 12l6 6 6-6"/>', up: '<path d="M12 20V8M6 12l6-6 6 6"/>', xls: '<rect x="4" y="3" width="16" height="18" rx="2.5"/><path d="M8 8l8 8M16 8l-8 8"/>',
 };
 const ic = (n, cls = '') => `<svg class="i ${cls}" viewBox="0 0 24 24">${ICO[n]}</svg>`;
@@ -1934,7 +1939,7 @@ function render() {
     ${TABS.map(([k, t, i]) => `<button class="nv ${S.tab === k ? 'on' : ''}" data-a="tab" data-id="${k}">${ic(i)}${t}${k === 'dates' && urgent ? `<span class="tag bad" style="margin-left:auto">${urgent}</span>` : ''}</button>`).join('')}
     <div class="grow"></div><button class="nv" data-a="palette">${ic('search')}Поиск <kbd style="margin-left:auto">Ctrl K</kbd></button></aside>
     <main class="main ${full ? 'fresh' : ''} ${S.tab === 'board' ? 'wide' : ''}">${S.memOnly ? '<div class="banner">Хранилище браузера недоступно — данные живут только до закрытия вкладки. Сделай экспорт копии в Настройках.</div>' : ''}
-    <div class="top"><h1>${TITLES[S.tab]}</h1><span class="tag" title="версия приложения">v4.12 · 08.11</span>
+    <div class="top"><h1>${TITLES[S.tab]}</h1><span class="tag" title="версия приложения">v4.13 · 08.11</span>
       <button class="ic" data-a="palette" title="Поиск и команды (Ctrl+K)">${ic('search')}</button>
       <button class="ic" data-a="hide" title="Скрыть суммы">${ic(d.settings.hide ? 'eyeoff' : 'eye')}</button>
       <button class="ic" data-a="lock" title="Заблокировать">${ic('lock')}</button></div>
@@ -2091,11 +2096,25 @@ function viewDates() {
 }
 
 /* ===== Заметки ===== */
+const NK = { dec: 'Решение', idea: 'Идея', cond: 'Условие', '': 'Мысль' };
+const NKORD = ['dec', 'idea', 'cond', ''];
+function noteFiltered() {
+  const q = S.q.toLowerCase(), k = S.nk;
+  return [...S.data.notes].filter(n => (!q || (n.text + ' ' + (n.where || '')).toLowerCase().includes(q)) && (k === '' || (k === 'nop' ? !n.where : (n.kind || '') === (k === 'free' ? '' : k)))).sort((a, b) => (b.pin ? 1 : 0) - (a.pin ? 1 : 0) || (a.d < b.d ? 1 : a.d > b.d ? -1 : 0));
+}
+function noteList() {
+  const L = noteFiltered(), pl = flPlaces();
+  if (!L.length) return '<div class="empty">Заметок нет</div>';
+  return L.map(n => { const k = n.kind || ''; return `<div class="item nt ${n.pin ? 'pin' : ''}" style="align-items:flex-start;cursor:default"><div class="grow"><div class="row nth"><button class="ntk nk-${k || 'x'}" data-a="nkind" data-id="${n.id}" title="Нажми, чтобы сменить тип">${NK[k]}</button><span class="sm mut">${fmtDate(n.d)}</span><select class="ntp" data-i="nplace" data-id="${n.id}" title="К какому месту относится"><option value="">без места</option>${pl.concat(n.where && !pl.includes(n.where) ? [n.where] : []).map(x => `<option ${n.where === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select></div><div style="white-space:pre-wrap;margin-top:4px">${esc(n.text)}</div></div><button class="ic ${n.pin ? 'on' : ''}" data-a="npin" data-id="${n.id}" title="Закрепить">${ic('star')}</button><button class="ic" data-a="delNote" data-id="${n.id}">${ic('x')}</button></div>`; }).join('');
+}
 function viewNotes() {
-  const q = S.q.toLowerCase(), L = [...S.data.notes].filter(n => !q || n.text.toLowerCase().includes(q)).sort((a, b) => a.d < b.d ? 1 : -1);
-  return `<div class="card col"><textarea class="inp" id="nt" placeholder="Мысль, решение, что понял на этой неделе…"></textarea><div class="row"><input class="inp" type="date" id="nd" value="${todayISO()}" style="max-width:170px"><div class="grow"></div><button class="btn pri" data-a="addNote">${ic('plus')}Записать</button></div></div>
-  <div class="row" style="margin:14px 0 4px"><input class="inp" data-i="q2" placeholder="Поиск по заметкам" value="${esc(S.q)}"></div>
-  <div id="nlist">${L.length ? L.map(n => `<div class="item" style="align-items:flex-start;cursor:default"><div class="grow"><div class="sm mut">${fmtDate(n.d)}</div><div style="white-space:pre-wrap">${esc(n.text)}</div></div><button class="ic" data-a="delNote" data-id="${n.id}">${ic('x')}</button></div>`).join('') : '<div class="empty">Заметок нет</div>'}</div>`;
+  const pl = flPlaces(), cnt = S.data.notes.filter(n => !n.where).length;
+  return `<p class="mut sm" style="margin:0 0 10px">Решения, идеи и условия, привязанные к местам. Тип и место можно сменить прямо в записи.</p>
+  <div class="card col"><div class="seg" id="ntsel">${NKORD.map(k => `<button type="button" class="${(S.nnew || 'dec') === (k || 'x') ? 'on' : ''}" data-a="nnew" data-id="${k || 'x'}">${NK[k]}</button>`).join('')}</div>
+  <textarea class="inp" id="nt" placeholder="Что решил, придумал или важно помнить…"></textarea><div class="row" style="flex-wrap:wrap"><input class="inp" type="date" id="nd" value="${todayISO()}" style="max-width:150px"><select class="inp grow" id="nw" style="min-width:150px"><option value="">без места</option>${pl.map(x => `<option>${esc(x)}</option>`).join('')}</select><div class="grow"></div><button class="btn pri" data-a="addNote">${ic('plus')}Записать</button></div></div>
+  <div class="row wrap" style="gap:6px;margin:14px 0 8px">${[['', 'Все'], ['dec', 'Решения'], ['idea', 'Идеи'], ['cond', 'Условия'], ['free', 'Мысли'], ['nop', 'Без места' + (cnt ? ' · ' + cnt : '')]].map(([k, t]) => `<button class="chip ${S.nk === k ? 'on' : ''}" data-a="nflt" data-id="${k}">${t}</button>`).join('')}</div>
+  <div class="row" style="margin:0 0 6px"><input class="inp" data-i="q2" placeholder="Поиск по заметкам и местам" value="${esc(S.q)}"></div>
+  <div id="nlist">${noteList()}</div>`;
 }
 
 /* ===== Настройки ===== */
@@ -2122,7 +2141,7 @@ function viewSet() {
     <button class="btn" data-a="clrpos">Очистить все позиции</button>
     <button class="btn" data-a="demo">Добавить демо-данные</button>
     <div class="sm mut">Excel читается прямо в браузере и никуда не отправляется. Копия — это зашифрованный файл: без пароля или ключа восстановления это набор случайных байт.</div></div>
-  <div class="card col" style="grid-column:1/-1"><h3>Как это защищено <span class="tag">v4.12</span></h3><div class="sm mut">Мастер-пароль → PBKDF2‑SHA256, ${Vault.ITER_PW.toLocaleString('ru-RU')} итераций → ключ, которым открывается случайный ключ данных. Данные шифруются AES‑256‑GCM (с проверкой целостности). Пароль не хранится. В браузере лежит только шифротекст. Лимит попыток и задержка защищают от случайного подбора на устройстве, а от кражи файла защищает сила пароля.</div></div></div>`;
+  <div class="card col" style="grid-column:1/-1"><h3>Как это защищено <span class="tag">v4.13</span></h3><div class="sm mut">Мастер-пароль → PBKDF2‑SHA256, ${Vault.ITER_PW.toLocaleString('ru-RU')} итераций → ключ, которым открывается случайный ключ данных. Данные шифруются AES‑256‑GCM (с проверкой целостности). Пароль не хранится. В браузере лежит только шифротекст. Лимит попыток и задержка защищают от случайного подбора на устройстве, а от кражи файла защищает сила пароля.</div></div></div>`;
 }
 function openChangePw(forced) {
   modal(`<h3>${forced ? 'Задай новый мастер-пароль' : 'Смена пароля'}</h3><p class="sm mut">${forced ? 'Ты вошёл по ключу восстановления — старый пароль утерян, поставь новый.' : 'Ключ восстановления остаётся прежним.'}</p><form id="cf" class="col"><input class="inp" id="n1" type="password" placeholder="Новый пароль" autocomplete="new-password"><div class="meter" id="mt">${meterHTML(0)}</div><input class="inp" id="n2" type="password" placeholder="Повтори" autocomplete="new-password"><div class="err" id="er"></div><div class="row" style="justify-content:flex-end">${forced ? '' : '<button type="button" class="btn" data-x="c">Отмена</button>'}<button class="btn pri">Сохранить</button></div></form>`, ov => {
@@ -2182,7 +2201,11 @@ async function actions(a, el) {
     case 'flc': S.fl.cur = id; render(); break;
     case 'flt': S.fl.t = id; render(); break;
     case 'fdis': S.fl.dis = !S.fl.dis; render(); break;
-    case 'addNote': { const t = $('#nt').value.trim(); if (!t) return; S.data.notes.push({ id: uid(), d: $('#nd').value || todayISO(), text: t }); await persist(); render(); break; }
+    case 'nnew': S.nnew = id; render(); break;
+    case 'nflt': S.nk = id; render(); break;
+    case 'nkind': { const n = S.data.notes.find(z => z.id === id); if (!n) break; n.kind = NKORD[(NKORD.indexOf(n.kind || '') + 1) % 4]; await persist(); render(); break; }
+    case 'npin': { const n = S.data.notes.find(z => z.id === id); if (!n) break; n.pin = !n.pin; await persist(); render(); break; }
+    case 'addNote': { const t = $('#nt').value.trim(); if (!t) return toast('Напиши текст заметки'); S.data.notes.push({ id: uid(), d: $('#nd').value || todayISO(), text: t, kind: S.nnew === 'x' ? '' : S.nnew, where: $('#nw').value || '' }); await persist(); render(); break; }
     case 'delNote': { const n0 = S.data.notes.find(n => n.id === id); if (!n0) break; S.data.notes = S.data.notes.filter(n => n.id !== id); await persist(); render(); undoToast('Заметка удалена', async () => { S.data.notes.push(n0); await persist(); render(); }); break; }
     case 'theme': document.documentElement.dataset.theme = id; LS.set('sv_theme', id); render(); break;
     case 'chpw': openChangePw(false); break;
@@ -2225,7 +2248,7 @@ async function doXlsx(f) {
   let found; try { found = parseWorkbook(await f.arrayBuffer()); } catch (e) { closeModal('ovl', true); return toast('Не смог прочитать файл: ' + e.message); }
   closeModal('ovl', true);
   if (!found.length) return toast('Не нашёл знакомых листов («движение средств», «состояние средств», «Мысли»)');
-  modal(`<div class="row" style="margin-bottom:8px"><h3 class="grow">Импорт из Excel <span class="tag">v4.12</span></h3><button class="ic" data-x="c">${ic('x')}</button></div><p class="sm mut">Найдено в файле. Отметь, что добавить (всё добавляется к существующему):</p>
+  modal(`<div class="row" style="margin-bottom:8px"><h3 class="grow">Импорт из Excel <span class="tag">v4.13</span></h3><button class="ic" data-x="c">${ic('x')}</button></div><p class="sm mut">Найдено в файле. Отметь, что добавить (всё добавляется к существующему):</p>
   ${found.map((x, i) => `<label class="card row" style="align-items:flex-start;margin-bottom:8px"><input type="checkbox" data-k="${i}" ${x.positions ? 'data-pos="1"' : ''} ${x.def && x.count ? 'checked' : ''} ${x.count ? '' : 'disabled'}><div><b>${esc(x.title)}</b> <span class="tag">${x.count}</span><div class="sm mut">${esc(x.desc)}</div></div></label>`).join('')}
   ${found.some(f => f.positions && f.positions.some(q => q._cl)) ? `<label class="row sm" style="margin-top:6px;align-items:flex-start"><input type="checkbox" id="autocl" checked><span>Закрыть вклады, которые в последнем столбце пустые, а срок уже вышел — деньги переложены в другие строки (иначе посчитаются дважды). Таких: <b>${found.reduce((s, f) => s + (f.positions ? f.positions.filter(q => q._cl).length : 0), 0)}</b></span></label>` : ''}
   <div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn pri" data-x="go">Импортировать</button></div>`, ov => {
@@ -2247,7 +2270,8 @@ document.addEventListener('input', e => {
   if (i === 'flp') { S.fl.p = e.target.value; render(); }
   else if (i === 'flq') { S.fl.q = e.target.value; $('#fllist').innerHTML = flList(); const L = flFiltered(), by = {}; L.forEach(f => by[f.cur] = (by[f.cur] || 0) + f.amt); $('#flsum').innerHTML = Object.keys(by).map(c => `<span class="tag" style="--cc:var(--cc-${c})">${SYM[c]} <b class="money">${fmt(by[c], c)}</b></span>`).join('') + `<span class="mut sm">${L.length} перев.</span>`; }
   else if (i === 'q') { S.q = e.target.value; const sn = flipSnap(); $('#plist').innerHTML = plist(); flipPlay(sn); }
-  else if (i === 'q2') { S.q = e.target.value; const L = S.data.notes.filter(n => n.text.toLowerCase().includes(S.q.toLowerCase())).sort((a, b) => a.d < b.d ? 1 : -1); $('#nlist').innerHTML = L.length ? L.map(n => `<div class="item" style="align-items:flex-start;cursor:default"><div class="grow"><div class="sm mut">${fmtDate(n.d)}</div><div style="white-space:pre-wrap">${esc(n.text)}</div></div><button class="ic" data-a="delNote" data-id="${n.id}">${ic('x')}</button></div>`).join('') : '<div class="empty">Заметок нет</div>'; }
+  else if (i === 'q2') { S.q = e.target.value; $('#nlist').innerHTML = noteList(); }
+  else if (i === 'nplace') { const n = S.data.notes.find(z => z.id === e.target.dataset.id); if (n) { n.where = e.target.value; persist().then(() => render()); } }
   else if (i === 'spUSD') { const v = num(e.target.value); if (v != null && v >= 0) { const st = S.data.settings; st.spread = { ...(st.spread || {}), USD: v }; persist(); } }
   else if (i === 'rKZT' || i === 'rUSD') { const v = num(e.target.value); if (v > 0) { S.data.settings.rates[i.slice(1)] = v; FX.st().mig = true; FX.st().migUser = true; persist(); } }
 });
