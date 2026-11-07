@@ -12,7 +12,9 @@ function boardModel() {
   const cut = per ? addDays(todayISO(), -per * 30) : '';
   let ds = all.filter(d => d >= cut); if (ds.length < 2) ds = all.slice(0, 12);
   const base = S.data.positions.filter(p => !p.excl);
-  const vis = base.filter(p => !hz || ds.some(d => lastAmt(p, d) > 0));
+  const bc = (S.data.settings.bcol = S.data.settings.bcol || {}), d0 = all[0] || todayISO();
+  const defVis = p => !hz || lastAmt(p, d0) > 0, isVis = p => bc[p.id] === 1 ? true : bc[p.id] === 0 ? false : defVis(p);
+  const vis = base.filter(isVis);
   const key = p => grp === 'place' ? p.id : grp === 'bank' ? bankOf(p) : grp === 'type' ? (p.type || 'Прочее') : '';
   const lab = p => grp === 'place' ? p.where : key(p);
   const curs = ['RUB', 'KZT', 'USD'].map(c => {
@@ -20,7 +22,7 @@ function boardModel() {
     if (grp !== 'cur') ps.forEach(p => { const k = key(p); if (!m.has(k)) m.set(k, { k, label: lab(p), c, ps: [] }); m.get(k).ps.push(p); });
     return { c, ps, cols: [...m.values()].sort((a, b) => a.label.localeCompare(b.label, 'ru')) };
   }).filter(x => x.ps.length);
-  return { all, ds, grp, curs, base, vis, hz };
+  return { all, ds, grp, curs, base, vis, hz, defVis, isVis, bc };
 }
 const bSum = (ps, d) => ps.reduce((s, p) => s + lastAmt(p, d), 0);
 
@@ -43,7 +45,7 @@ function viewBoard() {
     if (ps.length === 1 && !sub) { const h = ps[0].history.find(x => x.d === d); if (h && h.est) cls += ' est'; else if (!h && v) cls += ' carry'; if (mode === 'sum') { a = ` data-a="bcell" data-id="${ps[0].id}" data-d="${d}"`; tt = h ? (h.est ? 'расчёт приложения — нажми, чтобы поправить' : 'введено') : 'без изменений с прошлого снимка'; } }
     return `<td class="${cls}"${st}${a}${tt ? ` title="${tt}"` : ''}><span class="money">${fv(v)}</span></td>`; };
   const head1 = curs.map(x => { const f = fold[x.c] || !x.cols.length; return `<th id="bdc-${x.c}" class="bd-cur cc-${x.c}" colspan="${f ? 1 : x.cols.length + 1}" data-a="bfold" data-id="${x.c}" title="свернуть / развернуть">${SYM[x.c]} ${BCN[x.c]} ${x.cols.length ? (fold[x.c] ? '▸' : '▾') : ''}</th>`; }).join('');
-  const head2 = curs.map(x => (fold[x.c] || !x.cols.length ? '' : x.cols.map(g => `<th class="bd-h cc-${x.c}"${g.ps.length > 1 || grp === 'type' ? ` data-a="bgroup" data-id="${esc(g.k)}" data-c="${x.c}"` : ` data-a="editPos" data-id="${g.ps[0].id}"`} title="${esc(g.label)}${g.ps.length > 1 ? ' · мест: ' + g.ps.length : ''}">${esc(g.label.length > 13 ? g.label.slice(0, 12) + '…' : g.label)}</th>`).join('')) + `<th class="bd-h bd-s cc-${x.c}">Σ ${SYM[x.c]}</th>`).join('');
+  const head2 = curs.map(x => (fold[x.c] || !x.cols.length ? '' : x.cols.map(g => `<th class="bd-h cc-${x.c}"${g.ps.length > 1 || grp === 'type' ? ` data-a="bgroup" data-id="${esc(g.k)}" data-c="${x.c}"` : ` data-a="editPos" data-id="${g.ps[0].id}"`} title="${esc(g.label)}${g.ps.length > 1 ? ' · мест: ' + g.ps.length : ''}">${esc(g.label.length > 13 ? g.label.slice(0, 12) + '…' : g.label)}<span class="bd-x" data-a="bhid" data-ids="${g.ps.map(q => q.id).join(',')}" title="скрыть столбец">×</span></th>`).join('')) + `<th class="bd-h bd-s cc-${x.c}">Σ ${SYM[x.c]}</th>`).join('');
   const rows = ds.map(d => { const t = tot(d), q = prevOf(d), dl = q ? t - tot(q) : null, est = S.data.positions.some(p => p.history.some(h => h.d === d && h.est));
     const body = curs.map(x => (fold[x.c] || !x.cols.length ? '' : x.cols.map(g => cell(g.ps, x.c, d, false)).join('')) + cell(x.ps, x.c, d, true)).join('');
     return `<tr><th class="bd-d" data-a="snap" data-id="${d}" title="открыть снимок">${fmtDate(d)}${est ? ' <span class="bd-est">≈</span>' : ''}</th>${body}<td class="bd-c bd-t bd-r2"><span class="money">${nf.format(Math.round(t))}</span></td><td class="bd-c bd-r1">${dl == null ? '' : `<span class="${dl >= 0 ? 'up' : 'dn'}">${dl >= 0 ? '▲' : '▼'} ${short(Math.abs(dl))}</span>`}</td></tr>`; }).join('');
@@ -53,7 +55,7 @@ function viewBoard() {
   const dper = tot(d0) - tot(dN), nowN = M.base.filter(p => lastAmt(p) > 0).length;
   const seg = (arr, act, cur) => `<div class="seg">${arr.map(([k, l]) => `<button class="${String(cur) === String(k) ? 'on' : ''}" data-a="${act}" data-id="${k}">${l}</button>`).join('')}</div>`;
   return `<div class="bdbar"><div class="row wrap" style="gap:8px"><span class="sm mut">Группировать:</span>${seg(BGR, 'bgrp', grp)}${seg(BMO, 'bmode', mode)}
-    <button class="bdpill ${M.hz ? 'on' : ''}" data-a="bzero">${M.hz ? '✓ ' : ''}Скрыть нулевые</button>${seg(BPER, 'bper', per)}</div>
+    <button class="bdpill ${M.hz ? 'on' : ''}" data-a="bzero" title="нулевые на последнюю дату">${M.hz ? '✓ ' : ''}Скрыть нулевые</button><button class="bdpill" data-a="bcols">Столбцы · ${M.vis.length}/${M.base.length}</button>${seg(BPER, 'bper', per)}</div>
     <div class="row wrap" style="gap:8px"><button class="bdpill ${heat ? 'on' : ''}" data-a="bheat">🔥 Тепловая карта</button><div class="grow"></div><button class="btn sm" data-a="newPos">+ Место</button><button class="btn sm pri" data-a="snap">+ Снимок</button></div>
     <div class="row wrap" style="gap:8px"><span class="bdchip">Итог <b class="money">${nf.format(Math.round(tot(d0)))} ₽</b></span><span class="bdchip">Δ за период <b class="${dper >= 0 ? 'up' : 'dn'} money">${dper >= 0 ? '+' : '−'}${short(Math.abs(dper))}</b></span>${best ? `<span class="bdchip">Лучший рост: <b>${esc(best.n)} ${best.g >= 0 ? '+' : ''}${best.g.toFixed(0)}%</b></span>` : ''}<span class="bdchip">Мест с деньгами: <b>${nowN} из ${M.base.length}</b></span></div></div>
   <div class="row wrap" style="gap:6px;margin-bottom:8px"><span class="sm mut">Перейти:</span>${curs.map(x => `<button class="bdjump cc-${x.c}" data-a="bjump" data-id="${x.c}">${SYM[x.c]} ${BCN[x.c]} · <b class="money">${short(bSum(x.ps, ds[0]))}</b></button>`).join('')}</div><div class="card bd-card"><div class="bd-w"><table class="bd"><thead><tr><th class="bd-d" rowspan="2">Дата</th>${head1}<th class="bd-h bd-t bd-r2" rowspan="2">Итог ₽</th><th class="bd-h bd-r1" rowspan="2">Δ</th></tr><tr>${head2}</tr></thead><tbody>${rows}</tbody></table></div></div>
@@ -87,5 +89,19 @@ function boardCell(id, d) {
       if (x === 'del') p.history = p.history.filter(z => z.d !== d);
       await persist(); closeModal('ov'); render(); });
     $('#bcv', ov).addEventListener('keydown', e => { if (e.key === 'Enter') ov.querySelector('[data-x=ok]').click(); });
+  });
+}
+
+/** окно «Столбцы»: показать/скрыть любое место */
+function boardCols() {
+  const M = boardModel(), bc = M.bc, byC = ['RUB', 'KZT', 'USD'].map(c => [c, M.base.filter(p => p.cur === c).sort((a, b) => a.where.localeCompare(b.where, 'ru'))]).filter(x => x[1].length);
+  modal(`<div class="row" style="margin-bottom:8px"><h3 class="grow">Столбцы панели</h3></div><div class="sm mut" style="margin-bottom:8px">Галочка — столбец виден. По умолчанию нулевые на последнюю дату скрыты (если включено «Скрыть нулевые»); твои отметки главнее.</div>
+  <div class="bcl">${byC.map(([c, ps]) => `<div class="flmon" style="color:var(--cc-${c})">${SYM[c]} ${BCN[c]}</div>` + ps.map(p => `<label class="row bcr"><input type="checkbox" data-id="${p.id}" ${M.isVis(p) ? 'checked' : ''}><span class="grow">${esc(p.where)}</span><span class="mut sm money">${fmt(lastAmt(p, M.all[0]), p.cur)}</span></label>`).join('')).join('')}</div>
+  <div class="row" style="justify-content:flex-end;gap:8px;margin-top:10px"><button class="btn" data-x="all">Показать все</button><button class="btn" data-x="rst">Сбросить</button><button class="btn pri" data-x="ok">Готово</button></div>`, ov => {
+    ov.addEventListener('change', async e => { const c = e.target.closest('input[data-id]'); if (!c) return; const p = M.base.find(q => q.id === c.dataset.id); if (!p) return; if (c.checked === M.defVis(p)) delete bc[p.id]; else bc[p.id] = c.checked ? 1 : 0; await persist(); });
+    ov.addEventListener('click', async e => { const b = e.target.closest('[data-x]'); if (!b) return;
+      if (b.dataset.x === 'all') { M.base.forEach(p => { if (M.defVis(p)) delete bc[p.id]; else bc[p.id] = 1; }); await persist(); }
+      else if (b.dataset.x === 'rst') { Object.keys(bc).forEach(k => delete bc[k]); await persist(); }
+      closeModal(); render(); });
   });
 }

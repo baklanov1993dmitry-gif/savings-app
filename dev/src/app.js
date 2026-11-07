@@ -176,7 +176,7 @@ function render() {
     ${TABS.map(([k, t, i]) => `<button class="nv ${S.tab === k ? 'on' : ''}" data-a="tab" data-id="${k}">${ic(i)}${t}${k === 'dates' && urgent ? `<span class="tag bad" style="margin-left:auto">${urgent}</span>` : ''}</button>`).join('')}
     <div class="grow"></div><button class="nv" data-a="palette">${ic('search')}Поиск <kbd style="margin-left:auto">Ctrl K</kbd></button></aside>
     <main class="main ${full ? 'fresh' : ''} ${S.tab === 'board' ? 'wide' : ''}">${S.memOnly ? '<div class="banner">Хранилище браузера недоступно — данные живут только до закрытия вкладки. Сделай экспорт копии в Настройках.</div>' : ''}
-    <div class="top"><h1>${TITLES[S.tab]}</h1><span class="tag" title="версия приложения">v4.9 · 08.11</span>
+    <div class="top"><h1>${TITLES[S.tab]}</h1><span class="tag" title="версия приложения">v4.10 · 08.11</span>
       <button class="ic" data-a="palette" title="Поиск и команды (Ctrl+K)">${ic('search')}</button>
       <button class="ic" data-a="hide" title="Скрыть суммы">${ic(d.settings.hide ? 'eyeoff' : 'eye')}</button>
       <button class="ic" data-a="lock" title="Заблокировать">${ic('lock')}</button></div>
@@ -364,7 +364,7 @@ function viewSet() {
     <button class="btn" data-a="clrpos">Очистить все позиции</button>
     <button class="btn" data-a="demo">Добавить демо-данные</button>
     <div class="sm mut">Excel читается прямо в браузере и никуда не отправляется. Копия — это зашифрованный файл: без пароля или ключа восстановления это набор случайных байт.</div></div>
-  <div class="card col" style="grid-column:1/-1"><h3>Как это защищено <span class="tag">v4.9</span></h3><div class="sm mut">Мастер-пароль → PBKDF2‑SHA256, ${Vault.ITER_PW.toLocaleString('ru-RU')} итераций → ключ, которым открывается случайный ключ данных. Данные шифруются AES‑256‑GCM (с проверкой целостности). Пароль не хранится. В браузере лежит только шифротекст. Лимит попыток и задержка защищают от случайного подбора на устройстве, а от кражи файла защищает сила пароля.</div></div></div>`;
+  <div class="card col" style="grid-column:1/-1"><h3>Как это защищено <span class="tag">v4.10</span></h3><div class="sm mut">Мастер-пароль → PBKDF2‑SHA256, ${Vault.ITER_PW.toLocaleString('ru-RU')} итераций → ключ, которым открывается случайный ключ данных. Данные шифруются AES‑256‑GCM (с проверкой целостности). Пароль не хранится. В браузере лежит только шифротекст. Лимит попыток и задержка защищают от случайного подбора на устройстве, а от кражи файла защищает сила пароля.</div></div></div>`;
 }
 function openChangePw(forced) {
   modal(`<h3>${forced ? 'Задай новый мастер-пароль' : 'Смена пароля'}</h3><p class="sm mut">${forced ? 'Ты вошёл по ключу восстановления — старый пароль утерян, поставь новый.' : 'Ключ восстановления остаётся прежним.'}</p><form id="cf" class="col"><input class="inp" id="n1" type="password" placeholder="Новый пароль" autocomplete="new-password"><div class="meter" id="mt">${meterHTML(0)}</div><input class="inp" id="n2" type="password" placeholder="Повтори" autocomplete="new-password"><div class="err" id="er"></div><div class="row" style="justify-content:flex-end">${forced ? '' : '<button type="button" class="btn" data-x="c">Отмена</button>'}<button class="btn pri">Сохранить</button></div></form>`, ov => {
@@ -407,6 +407,8 @@ async function actions(a, el) {
     case 'bgrp': S.bgrp = id; render(); break;
     case 'bmode': S.bmode = id; render(); break;
     case 'bper': S.bper = Number(id); render(); break;
+    case 'bcols': boardCols(); break;
+    case 'bhid': { const bc = S.data.settings.bcol = S.data.settings.bcol || {}, old = JSON.stringify(bc), M = boardModel(); (el.dataset.ids || '').split(',').forEach(i => { const p = M.base.find(q => q.id === i); if (!p) return; if (M.defVis(p)) bc[i] = 0; else delete bc[i]; }); await persist(); render(); undoToast('Столбец скрыт', async () => { S.data.settings.bcol = JSON.parse(old); await persist(); render(); }); break; }
     case 'bzero': S.bzero = S.bzero === false; render(); break;
     case 'bheat': S.bheat = !S.bheat; render(); break;
     case 'bfold': S.bfold = { ...(S.bfold || {}), [id]: !(S.bfold || {})[id] }; render(); break;
@@ -463,7 +465,7 @@ async function doXlsx(f) {
   let found; try { found = parseWorkbook(await f.arrayBuffer()); } catch (e) { closeModal('ovl', true); return toast('Не смог прочитать файл: ' + e.message); }
   closeModal('ovl', true);
   if (!found.length) return toast('Не нашёл знакомых листов («движение средств», «состояние средств», «Мысли»)');
-  modal(`<div class="row" style="margin-bottom:8px"><h3 class="grow">Импорт из Excel <span class="tag">v4.9</span></h3><button class="ic" data-x="c">${ic('x')}</button></div><p class="sm mut">Найдено в файле. Отметь, что добавить (всё добавляется к существующему):</p>
+  modal(`<div class="row" style="margin-bottom:8px"><h3 class="grow">Импорт из Excel <span class="tag">v4.10</span></h3><button class="ic" data-x="c">${ic('x')}</button></div><p class="sm mut">Найдено в файле. Отметь, что добавить (всё добавляется к существующему):</p>
   ${found.map((x, i) => `<label class="card row" style="align-items:flex-start;margin-bottom:8px"><input type="checkbox" data-k="${i}" ${x.positions ? 'data-pos="1"' : ''} ${x.def && x.count ? 'checked' : ''} ${x.count ? '' : 'disabled'}><div><b>${esc(x.title)}</b> <span class="tag">${x.count}</span><div class="sm mut">${esc(x.desc)}</div></div></label>`).join('')}
   ${found.some(f => f.positions && f.positions.some(q => q._cl)) ? `<label class="row sm" style="margin-top:6px;align-items:flex-start"><input type="checkbox" id="autocl" checked><span>Закрыть вклады, которые в последнем столбце пустые, а срок уже вышел — деньги переложены в другие строки (иначе посчитаются дважды). Таких: <b>${found.reduce((s, f) => s + (f.positions ? f.positions.filter(q => q._cl).length : 0), 0)}</b></span></label>` : ''}
   <div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn pri" data-x="go">Импортировать</button></div>`, ov => {
