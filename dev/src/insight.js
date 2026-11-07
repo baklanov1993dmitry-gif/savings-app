@@ -91,3 +91,29 @@ function insightCards() {
   const td2 = `<div class="card"><div class="row" style="margin-bottom:10px"><h3 class="grow">Что сделать</h3>${todo.length ? `<span class="tag">${todo.length}</span>` : ''}</div><div class="col" style="gap:8px">${todo.length ? todo.slice(0, S.tdAll ? 50 : 6).map(x => `<div class="act act-${x.sev || 'n'}" ${x.snap ? `data-a="snap" data-id="${x.snap}"` : `data-a="editPos" data-id="${x.a}"`}><span class="act-e">${x.e || '•'}</span><div class="grow">${MW(x.t)}</div></div>`).join('') + (todo.length > 6 && !S.tdAll ? `<button class="btn sm" data-a="tdall">Ещё ${todo.length - 6}</button>` : '') : '<div class="act act-g"><span class="act-e">✅</span><div class="grow"><b>Всё в порядке</b><div class="sm mut">ничего не закрывается в ближайшие 3 недели, деньги работают</div></div></div>'}</div></div>`;
   return `<div class="grid g2 hm-grid" style="margin-bottom:14px">${td2}<div class="col" style="gap:14px">${ygc}${why || ''}</div></div><div style="margin-bottom:14px">${risk}</div>`;
 }
+
+/* ===== Выводы: лента карточек «вывод одной фразой + как посчитано» ===== */
+function conclusions() {
+  const L = [], tot = totals(), T = tot.rub || 0;
+  const yg = yearGrowth(), w = whyChanged(), rk = riskInfo(), tx = taxInfo(), todo = todoList();
+  const vc = (sev, big, more, det) => L.push({ sev, big, more, det });
+  if (w && w.dups.length) vc('w', `Похоже, часть позиций записана дважды: ${w.dups.slice(0, 3).map(esc).join(', ')}`, 'Что проверить', `Одинаковые место и валюта встречаются больше одного раза, при этом суммы есть. Если это один счёт, итог завышен. Открой «Позиции» и убери лишнее.`);
+  for (const x of todo.filter(z => z.sev === 'r').slice(0, 2)) vc('w', x.t, 'Что сделать', 'Срок вклада подходит или вышел. Сумма выплаты считается по условиям вклада в карточке места.');
+  if (yg) {
+    const pct = yg.base > 0 ? yg.dl / yg.base * 100 : null, up = yg.dl >= 0;
+    vc(up ? 'g' : 'w', `За год капитал ${up ? 'вырос' : 'упал'} на ${short(Math.abs(yg.dl))} ₽${pct != null ? ` (${up ? '+' : '−'}${Math.abs(pct).toFixed(0)}%)` : ''}${yg.pct > 0 ? `. Проценты дали ${short(yg.pct)} ₽` : ''}`, 'Как посчитано',
+      `Период ${fmtDate(yg.from)} → ${fmtDate(yg.to)}. Изменение суммы по каждому снимку разложено на три части: проценты по условиям вкладов (${yg.pct >= 0 ? '+' : '−'}${short(Math.abs(yg.pct))} ₽), курсы валют (${yg.fx >= 0 ? '+' : '−'}${short(Math.abs(yg.fx))} ₽) и остальное: пополнения, снятия, колебания крипты (${yg.other >= 0 ? '+' : '−'}${short(Math.abs(yg.other))} ₽). «Остальное» не доход: сюда попадает то, что ты сам доложил или снял.`);
+  }
+  if (rk.top && rk.top.s > 30) vc('w', `${rk.top.s.toFixed(0)}% всех денег лежит в одном месте: ${esc(rk.top.w)}`, 'Почему важно', `Доля места в общей сумме в рублях. Если с этим банком что-то случится, под удар попадёт именно эта часть.${/кз_|kz/i.test(rk.top.w) ? '' : ' Страховка АСВ покрывает до 1,4 млн ₽ на банк.'}`);
+  if (rk.cur[1][1] > 40 && T) vc('w', `${rk.cur[1][1].toFixed(0)}% денег в тенге: ослабление тенге на 5% съест около ${short(T * rk.cur[1][1] / 100 * 0.05)} ₽`, 'Как посчитано', `Доля тенге в капитале, умноженная на 5%. Это пример, а не прогноз.`);
+  if (rk.crypto > 5) vc('w', `Крипта — ${rk.crypto.toFixed(0)}% капитала`, 'Почему важно', 'Сумма позиций типа «крипта» относительно всего капитала в рублях. Цена крипты скачет сильнее, чем по вкладам.');
+  if (tx.free && tx.inc > 0) { const tp = tx.inc / tx.free * 100; vc(tp >= 80 ? 'w' : 'g', tp >= 100 ? `Проценты по вкладам РФ за ${tx.y} выше необлагаемой суммы: будет налог` : `Налог с процентов за ${tx.y}: использовано ${tp.toFixed(0)}% необлагаемой суммы`, 'Как посчитано', `Оценка процентов по рублёвым вкладам за год: ${fmt(tx.inc, 'RUB')}. Необлагаемая сумма — 1 млн ₽ × ключевая ставка ${String(tx.key).replace('.', ',')}% = ${fmt(tx.free, 'RUB')}.`); }
+  if (w && Math.abs(w.dl) > 0) vc('n', `С ${fmtDate(w.d1)} по ${fmtDate(w.d2)} капитал ${w.dl >= 0 ? 'вырос' : 'упал'} на ${short(Math.abs(w.dl))} ₽`, 'Из чего сложилось', `Проценты ${w.pct >= 0 ? '+' : '−'}${short(Math.abs(w.pct))} ₽, курсы ${w.fx >= 0 ? '+' : '−'}${short(Math.abs(w.fx))} ₽, остальное ${w.other >= 0 ? '+' : '−'}${short(Math.abs(w.other))} ₽ (пополнения, снятия, рынок).${w.mv.length ? ' Больше всего изменились: ' + w.mv.slice(0, 3).map(x => esc(x.p.where)).join(', ') + '.' : ''}`);
+  return L;
+}
+function viewConclusions() {
+  const L = conclusions();
+  const feed = L.length ? L.map(c => `<details class="vc vc-${c.sev}"><summary><div class="vbig">${c.big}</div><span class="vmore">${c.more} ›</span></summary><div class="vd sm">${c.det}</div></details>`).join('') : '<div class="card empty"><p>Выводов пока нет: нужно хотя бы два снимка сумм. Добавь позиции или импортируй Excel.</p></div>';
+  return `<p class="mut sm" style="margin:0 0 12px">Главное о твоих деньгах одной фразой. Нажми на карточку, чтобы увидеть, как посчитано.</p><div class="col" style="gap:10px">${feed}</div>
+  <button class="fold" data-a="ancalc">${S.ancalc ? 'Скрыть расчёты из Excel' : 'Расчёты из Excel: «А если бы в банк», по годам, банки, налог ›'}</button>${S.ancalc ? viewAn() : ''}`;
+}

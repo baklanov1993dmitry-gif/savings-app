@@ -208,6 +208,7 @@ async function anAction(a, el) {
     case 'hdel': { const r = A_.home.rows.find(x => x.id === id); A_.home.rows = A_.home.rows.filter(x => x.id !== id); anSave(true); undoToast('Перевод удалён', () => { A_.home.rows.push(r); anSave(true); }); return true; }
     case 'cadd': A_.cmp.fxs.push(A_.cmp.fxs.length ? +(A_.cmp.fxs[A_.cmp.fxs.length - 1] - .1).toFixed(2) : 5); anSave(true); return true;
     case 'cdelx': A_.cmp.fxs.splice(+id, 1); anSave(true); return true;
+    case 'ancalc': S.ancalc = !S.ancalc; S.fresh = false; render(); return true;
     case 'asec': S.asec = id; S.rc = false; S.fresh = false; render(); return true;
     case 'crow': A_.crypto.rows.push({ id: uid(), d: todayISO(), amt: '', rate: '' }); anSave(true); return true;
     case 'cdel': { const r = A_.crypto.rows.find(x => x.id === id); A_.crypto.rows = A_.crypto.rows.filter(x => x.id !== id); anSave(true); undoToast('Вложение удалено', () => { A_.crypto.rows.push(r); anSave(true); }); return true; }
