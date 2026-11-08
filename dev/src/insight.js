@@ -49,7 +49,7 @@ function yearGrowth() {
 }
 const TAXKEY = { 2025: 21, 2026: 16 };
 function taxInfo() {
-  const T = todayISO(), y = T.slice(0, 4), j1 = y + '-01-01', d31 = y + '-12-31', cur = FX.keys().key || A().tax.key || 0, key = Math.max(TAXKEY[y] || 0, cur); let inc = 0; const rows = [], skip = [];
+  const T = todayISO(), y = T.slice(0, 4), j1 = y + '-01-01', d31 = y + '-12-31', cur = FX.keys().key || A().tax.key || 0, key = TAXKEY[y] || cur; let inc = 0; const rows = [], skip = [];
   for (const p of S.data.positions) { if (p.cur !== 'RUB' || p.archived || p.excl) continue; if (!(p.rate && p.cap)) { if (lastAmt(p) > 0 && /вклад|счёт|счет/i.test(p.type || '')) skip.push(p); continue; }
     const v = p.cap === 'end' ? (p.close && p.close >= j1 && p.close <= d31 ? endIncome(p, p.close) : 0) : segIncome(p, j1, p.close && p.close < d31 && !p.prolong ? p.close : d31); inc += v; if (v > 0) rows.push({ p, v }); }
   rows.sort((a, b) => b.v - a.v); const free = 1e6 * key / 100; return { inc, free, key, y, rows, skip };
