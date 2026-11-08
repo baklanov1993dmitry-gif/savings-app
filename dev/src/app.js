@@ -178,7 +178,7 @@ function render() {
     ${TABS.map(([k, t, i]) => `<button class="nv ${S.tab === k ? 'on' : ''}" data-a="tab" data-id="${k}">${ic(i)}${t}${k === 'dates' && urgent ? `<span class="tag bad" style="margin-left:auto">${urgent}</span>` : ''}</button>`).join('')}
     <div class="grow"></div><button class="nv" data-a="palette">${ic('search')}Поиск <kbd style="margin-left:auto">Ctrl K</kbd></button></aside>
     <main class="main ${full ? 'fresh' : ''} ${S.tab === 'money' && S.mm === 'table' ? 'wide' : ''}">${S.memOnly ? '<div class="banner">Хранилище браузера недоступно — данные живут только до закрытия вкладки. Сделай экспорт копии в Настройках.</div>' : ''}
-    <div class="top"><h1>${TITLES[S.tab]}</h1><span class="tag" title="версия приложения">v4.23 · 08.11</span>
+    <div class="top"><h1>${TITLES[S.tab]}</h1><span class="tag" title="версия приложения">v4.24 · 08.11</span>
       <button class="ic" data-a="palette" title="Поиск и команды (Ctrl+K)">${ic('search')}</button>
       <button class="ic" data-a="hide" title="Скрыть суммы">${ic(d.settings.hide ? 'eyeoff' : 'eye')}</button>
       <button class="ic" data-a="lock" title="Заблокировать">${ic('lock')}</button></div>
