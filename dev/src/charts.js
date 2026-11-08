@@ -24,7 +24,9 @@ function curSeries(cur) {
 /** ожидаемая выплата к дате закрытия (по условиям вклада) */
 function payoutOf(p) {
   const T = todayISO(); if (p.archived || !p.rate || !p.close || p.close <= T) return null;
-  const a = lastAmt(p), g = grow(p.cap ? p : { ...p, cap: 'end' }, T, a, p.close), total = g.bal + g.acc + g.paid; return { total, gain: total - a };
+  const a = lastAmt(p);
+  if (p.cap === 'end' && p.open && p.open < T) { const inc = endIncome(p, p.close); return { total: a + inc, gain: inc }; }
+  const g = grow(p.cap ? p : { ...p, cap: 'end' }, T, a, p.close), total = g.bal + g.acc + g.paid; return { total, gain: total - a };
 }
 function fcFn() {
   const T = todayISO(), ps = act();

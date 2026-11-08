@@ -54,3 +54,14 @@ function guessCap(p) {
   if (/вклад|депозит/i.test(p.type)) return 'end';
   return 'month';
 }
+
+/** проценты по вкладу «% в конце срока» с даты открытия до upTo: суммы берём из истории по отрезкам.
+    Пока снимков с деньгами ещё не было, считаем по первой ненулевой сумме (вклад открыт в p.open) */
+function endIncome(p, upTo) {
+  const hs = [...p.history].sort((a, b) => a.d < b.d ? -1 : 1), fp = hs.find(h => h.amt > 0);
+  if (!fp || !p.open || !upTo || p.open >= upTo) return 0;
+  const amtAt = d => { if (d < fp.d) return fp.amt; let a = fp.amt; for (const h of hs) if (h.d <= d) a = h.amt; return a; };
+  const cuts = [p.open, ...hs.map(h => h.d).filter(d => d > p.open && d < upTo), upTo]; let sum = 0;
+  for (let i = 0; i < cuts.length - 1; i++) { const a = amtAt(cuts[i]); if (a > 0) sum += incomeOf(p, cuts[i], a, cuts[i + 1]); }
+  return sum;
+}

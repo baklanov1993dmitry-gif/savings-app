@@ -58,14 +58,13 @@ function flList() {
   return h;
 }
 function viewFlows() {
-  const L = flFiltered(), by = {}; L.forEach(f => by[f.cur] = (by[f.cur] || 0) + f.amt);
+  const L = flFiltered();
   const pl = flPlaces();
   return `<p class="mut sm" style="margin:0 0 10px">Как деньги двигались: пополнил, снял или переложил между местами. Метка рядом с местом показывает, откуда запись.</p><div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:10px"><button class="btn pri" data-a="fnew">+ Перевод</button>
     ${[['', 'Все'], ['in', 'Пополнения'], ['out', 'Снятия'], ['move', 'Переводы']].map(([k, t]) => `<button class="chip ${S.fl.t === k ? 'on' : ''}" data-a="flt" data-id="${k}">${t}</button>`).join('')}
     ${['', 'RUB', 'KZT', 'USD'].map(c => `<button class="chip ${S.fl.cur === c ? 'on' : ''}" data-a="flc" data-id="${c}" ${c ? `style="--cc:var(--cc-${c})"` : ''}>${c ? SYM[c] : 'Все валюты'}</button>`).join('')}
     <select class="inp" data-i="flp" style="max-width:220px"><option value="">Все места</option>${pl.map(x => `<option ${S.fl.p === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select>
     <input class="inp grow" data-i="flq" placeholder="Поиск по местам и заметкам" value="${esc(S.fl.q)}" style="min-width:140px"></div>
-  <div class="row flsum" id="flsum">${Object.keys(by).map(c => `<span class="tag" style="--cc:var(--cc-${c})">${SYM[c]} <b class="money">${fmt(by[c], c)}</b></span>`).join('')}<span class="mut sm">${L.length} перев.</span></div>
   ${(() => { const n = (S.data.flows || []).filter(flDis).length; return n || S.fl.dis ? `<button class="fold" data-a="fdis">${S.fl.dis ? '← К основным записям' : 'Спорные: ' + n + ' · программа не уверена, куда ушли деньги · разобрать'}</button>` : ''; })()}
   <div id="fllist">${flList()}</div>`;
 }

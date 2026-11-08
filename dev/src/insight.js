@@ -4,15 +4,15 @@ const DEP_T = /вклад|счёт|счет|карта|копилк/i, NOPCT_T =
 function snapDates() { return [...new Set(S.data.positions.flatMap(p => p.history.map(h => h.d)))].sort(); }
 function whyChanged() {
   const ds = snapDates(); if (ds.length < 2) return null; const d2 = ds[ds.length - 1], d1 = ds[ds.length - 2];
-  let fx = 0, pct = 0, dl = 0; const mv = [];
+  let fx = 0, pct = 0, un = 0, dl = 0; const mv = [];
   for (const p of inTot()) {
     const a1 = lastAmt(p, d1), a2 = lastAmt(p, d2), r1 = rateOf(p.cur, d1), r2 = rateOf(p.cur, d2);
-    dl += a2 * r2 - a1 * r1; fx += a1 * (r2 - r1); if (Math.abs(a2 * r2 - a1 * r1) > 1) mv.push({ p, a1, a2, v: a2 * r2 - a1 * r1 });
-    if (p.rate && p.cap && a1 > 0 && !p.archived) pct += incomeOf(p, d1, a1, d2) * r2;
+    dl += a2 * r2 - a1 * r1; fx += a1 * (r2 - r1); if (Math.abs(a2 * r2 - a1 * r1) > 1) mv.push({ p, a1, a2, v: a2 * r2 - a1 * r1, fxp: a1 * (r2 - r1), amtp: (a2 - a1) * r2 });
+    if (p.rate && p.cap && a1 > 0 && !p.archived) { const g = grow(p, d1, a1, d2); pct += (g.bal - a1 + g.paid) * r2; un += g.acc * r2; }
   }
   mv.sort((a, b) => Math.abs(b.v) - Math.abs(a.v));
   const seen = {}, dups = []; for (const p of S.data.positions) { if (p.excl) continue; const k = p.cur + '|' + p.where.toLowerCase().replace(/\s+/g, ' ').trim(); if (seen[k] && (lastAmt(p, d1) > 0 || lastAmt(seen[k], d1) > 0)) dups.push(p.where); else seen[k] = p; }
-  return { d1, d2, dl, fx, pct, other: dl - fx - pct, mv: mv.slice(0, 6), dups: [...new Set(dups)] };
+  return { d1, d2, dl, fx, pct, un, other: dl - fx - pct, mv: mv.slice(0, 6), dups: [...new Set(dups)] };
 }
 function bestOffers(cur) {
   if (cur !== 'RUB') return []; const out = [], bt = A().bt;
@@ -37,7 +37,7 @@ function todoList() {
 /** разложить изменение капитала между двумя датами */
 function decomp(d1, d2) {
   let fx = 0, pct = 0, dl = 0;
-  for (const p of inTot()) { const a1 = lastAmt(p, d1), a2 = lastAmt(p, d2), r1 = rateOf(p.cur, d1), r2 = rateOf(p.cur, d2); dl += a2 * r2 - a1 * r1; fx += a1 * (r2 - r1); if (p.rate && p.cap && a1 > 0) pct += Math.min(incomeOf(p, d1, a1, d2), Math.max(0, a2 - a1 + incomeOf(p, d1, a1, d2))) * r2; }
+  for (const p of inTot()) { const a1 = lastAmt(p, d1), a2 = lastAmt(p, d2), r1 = rateOf(p.cur, d1), r2 = rateOf(p.cur, d2); dl += a2 * r2 - a1 * r1; fx += a1 * (r2 - r1); if (p.rate && p.cap && a1 > 0) { const g = grow(p, d1, a1, d2), inc = g.bal - a1 + g.paid; pct += Math.min(inc, Math.max(0, a2 - a1 + inc)) * r2; } }
   return { dl, fx, pct, other: dl - fx - pct };
 }
 /** откуда прирост за 12 месяцев: сумма по соседним снимкам */
@@ -70,9 +70,10 @@ function insightCards() {
   const why = w ? `<div class="card"><div class="row" style="margin-bottom:4px"><h3 class="grow">Почему изменилось</h3><span class="sm mut">${fmtDate(w.d1)} → ${fmtDate(w.d2)}</span></div>
     <div class="big" style="font-size:26px;margin:4px 0 8px;color:var(--${w.dl >= 0 ? 'acc' : 'bad'})">${w.dl >= 0 ? '+' : '−'}${fmt(Math.abs(w.dl), 'RUB')}</div>
     ${bar('Проценты по вкладам', w.pct, 'var(--acc)')}${bar('Курсы валют', w.fx, 'var(--c2)')}${bar('Пополнения, снятия, рынок', w.other, 'var(--c3)')}
+    ${w.un > 1000 ? `<div class="sm mut" style="margin:4px 0">Ещё начислено, но пока не в суммах (вклады «% в конце срока»): +${short(w.un)} ₽</div>` : ''}
     ${w.dups.length ? `<div class="sm" style="margin:8px 0;padding:8px 10px;border-radius:10px;background:color-mix(in srgb,var(--bad) 14%,transparent);border:1px solid color-mix(in srgb,var(--bad) 40%,transparent)">⚠ Похоже, места задвоены: ${w.dups.slice(0, 5).map(esc).join(', ')}${w.dups.length > 5 ? ' и ещё ' + (w.dups.length - 5) : ''}. Так бывает после нескольких импортов — сделай «Настройки → Очистить все места» и импортируй файл один раз.</div>` : ''}
-    ${w.mv.length ? `<details style="margin-top:8px"${Math.abs(w.dl) > totals().rub * 0.3 ? ' open' : ''}><summary class="sm" style="cursor:pointer">Какие места дали изменение</summary>${w.mv.map(x => `<div class="row sm" style="gap:8px;margin-top:4px" data-a="editPos" data-id="${x.p.id}"><span class="grow" style="cursor:pointer">${esc(x.p.where)}${x.p.archived ? ' <span class="mut">(архив)</span>' : ''}</span><span class="mut">${fmt(x.a1, x.p.cur)} → ${fmt(x.a2, x.p.cur)}</span><b class="money" style="min-width:90px;text-align:right;color:var(--${x.v >= 0 ? 'acc' : 'bad'})">${x.v >= 0 ? '+' : '−'}${short(Math.abs(x.v))}</b></div>`).join('')}</details>` : ''}
-    <div class="sm mut" style="margin-top:6px">Проценты — расчёт по условиям вкладов; курсы — как изменилась стоимость тенге и долларов в рублях; остальное — то, что ты доложил/снял, и колебания крипты и инвестиций.</div></div>` : '';
+    ${w.mv.length ? `<details style="margin-top:8px"${Math.abs(w.dl) > totals().rub * 0.3 ? ' open' : ''}><summary class="sm" style="cursor:pointer">Какие места дали изменение</summary>${w.mv.map(x => { const sg = v => (v >= 0 ? '+' : '−') + short(Math.abs(v)); return `<div class="row sm" style="gap:8px;margin-top:6px" data-a="editPos" data-id="${x.p.id}"><div class="grow" style="cursor:pointer;min-width:0"><div>${esc(x.p.where)}${x.p.archived ? ' <span class="mut">(архив)</span>' : ''}</div><div class="mut" style="font-size:12px">${fmt(x.a1, x.p.cur)} → ${fmt(x.a2, x.p.cur)}${x.p.cur !== 'RUB' ? ` · сумма ${sg(x.amtp)} · курс ${sg(x.fxp)} ₽` : ''}</div></div><b class="money" style="min-width:90px;text-align:right;color:var(--${x.v >= 0 ? 'acc' : 'bad'})">${x.v >= 0 ? '+' : '−'}${short(Math.abs(x.v))}</b></div>`; }).join('')}</details>` : ''}
+    <div class="sm mut" style="margin-top:6px">Проценты — только те, что уже зачислены в суммы по условиям вкладов; курсы — как изменилась стоимость тенге и долларов в рублях; остальное — то, что ты доложил/снял, и колебания крипты и инвестиций.</div></div>` : '';
   const td = `<div class="card"><div class="row" style="margin-bottom:6px"><h3 class="grow">Что сделать</h3>${todo.length ? `<span class="tag">${todo.length}</span>` : ''}</div>${todo.length ? todo.slice(0, S.tdAll ? 50 : 5).map(x => `<div class="item" data-a="editPos" data-id="${x.a}" style="align-items:flex-start;gap:10px;cursor:pointer">${ic(x.ic)}<div class="grow sm">${x.t}</div></div>`).join('') + (todo.length > 5 && !S.tdAll ? `<button class="btn sm" data-a="tdall">Ещё ${todo.length - 5}</button>` : '') : '<div class="sm mut">Всё в порядке: ничего не закрывается в ближайшие 3 недели, деньги работают.</div>'}</div>`;
   const tp = tx.free ? Math.min(100, tx.inc / tx.free * 100) : 0;
   const risk = `<div class="card"><h3 style="margin-bottom:10px">Структура и риски</h3>
