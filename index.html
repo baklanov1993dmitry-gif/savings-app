@@ -2132,7 +2132,7 @@ function render() {
     ${TABS.map(([k, t, i]) => `<button class="nv ${S.tab === k ? 'on' : ''}" data-a="tab" data-id="${k}">${ic(i)}${t}${k === 'dates' && urgent ? `<span class="tag bad" style="margin-left:auto">${urgent}</span>` : ''}</button>`).join('')}
     <div class="grow"></div><button class="nv" data-a="palette">${ic('search')}Поиск <kbd style="margin-left:auto">Ctrl K</kbd></button></aside>
     <main class="main ${full ? 'fresh' : ''} ${S.tab === 'money' && S.mm === 'table' ? 'wide' : ''}">${S.memOnly ? '<div class="banner">Хранилище браузера недоступно — данные живут только до закрытия вкладки. Сделай экспорт копии в Настройках.</div>' : ''}
-    <div class="top"><h1>${TITLES[S.tab]}</h1><span class="tag" title="версия приложения">v4.26 · 09.11</span>
+    <div class="top"><h1>${TITLES[S.tab]}</h1><span class="tag" title="версия приложения">v4.27 · 09.11</span>
       <button class="ic" data-a="palette" title="Поиск и команды (Ctrl+K)">${ic('search')}</button>
       <button class="ic" data-a="hide" title="Скрыть суммы">${ic(d.settings.hide ? 'eyeoff' : 'eye')}</button>
       <button class="ic" data-a="lock" title="Заблокировать">${ic('lock')}</button></div>
@@ -2444,7 +2444,7 @@ async function actions(a, el) {
     case 'theme': document.documentElement.dataset.theme = id; LS.set('sv_theme', id); render(); break;
     case 'chpw': openChangePw(false); break;
     case 'newrec': { const r = await S.session.newRecovery(); LS.set('sv_vault', JSON.stringify(r.blob)); modal(`<h3>Новый ключ восстановления</h3><p class="sm mut">Старый ключ больше не работает. Запиши этот:</p><div class="reccode">${r.code}</div><div class="row" style="justify-content:flex-end;margin-top:14px"><button class="btn pri" data-x="c">Сохранил</button></div>`, ov => ov.addEventListener('click', e => { if (e.target.closest('[data-x=c]')) closeModal(); })); break; }
-    case 'export': { const b = new Blob([LS.get('sv_vault')], { type: 'application/json' }); const u = URL.createObjectURL(b), l = document.createElement('a'); l.href = u; l.download = `nakopleniya-backup-${todayISO()}.json`; l.click(); setTimeout(() => URL.revokeObjectURL(u), 3000); toast('Копия скачана (зашифрована)'); break; }
+    case 'export': { if (window.SvAndroid) { SvAndroid.save(`nakopleniya-backup-${todayISO()}.json`, LS.get('sv_vault')); break; } const b = new Blob([LS.get('sv_vault')], { type: 'application/json' }); const u = URL.createObjectURL(b), l = document.createElement('a'); l.href = u; l.download = `nakopleniya-backup-${todayISO()}.json`; l.click(); setTimeout(() => URL.revokeObjectURL(u), 3000); toast('Копия скачана (зашифрована)'); break; }
     case 'import': pick('.json', async f => {
       try { const j = JSON.parse(await f.text()); if (!(j.v === 1 && j.wp && j.wr && j.ct)) throw 0; if (!await ask('Заменить текущее хранилище копией из файла? Нужен будет пароль от копии.', 'Заменить', true)) return; LS.set('sv_vault', JSON.stringify(j)); lock(); } catch (e) { toast('Это не файл копии хранилища'); }
     }); break;
