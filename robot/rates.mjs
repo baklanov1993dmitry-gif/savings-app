@@ -39,9 +39,13 @@ async function baseRate() { // базовая ставка НБ РК (со ст�
   const m = t.match(/базов\w* ставк\w*[^%]{0,120}?(\d{1,2}(?:[,.]\d{1,2})?)\s*%/i);
   if (!m) throw new Error('base not found'); const v = +m[1].replace(',', '.'); if (!(v > 1 && v < 40)) throw new Error('base odd ' + v); return { base: v };
 }
+async function btc() { // цена биткоина в $ (CoinGecko, запасной — Coinbase)
+  try { const j = JSON.parse(await get('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd')); if (j.bitcoin && j.bitcoin.usd > 0) return { btc: Math.round(j.bitcoin.usd) }; } catch (e) { log('btc gecko', e.message); }
+  const j = JSON.parse(await get('https://api.coinbase.com/v2/prices/BTC-USD/spot')); const v = +j.data.amount; if (!(v > 0)) throw new Error('btc odd'); return { btc: Math.round(v) };
+}
 const tryIt = async (n, f) => { try { const r = await f(); log(n, JSON.stringify(r)); return r; } catch (e) { log(n, 'FAIL', e.message); return {}; } };
 
-const now = { ...(await tryIt('cbr', () => cbr(today))), ...(await tryIt('nbk', () => nbk(today))), ...(await tryIt('key', keyRate)), ...(await tryIt('base', baseRate)) };
+const now = { ...(await tryIt('cbr', () => cbr(today))), ...(await tryIt('nbk', () => nbk(today))), ...(await tryIt('key', keyRate)), ...(await tryIt('base', baseRate)), ...(await tryIt('btc', btc)) };
 const prev = db.today || {};
 db.today = { ...prev, ...now }; db.updated = new Date().toISOString();
 db.hist[today] = { ...(db.hist[today] || {}), ...Object.fromEntries(Object.entries(db.today).filter(([k]) => k !== 'keyDate')) };
@@ -55,6 +59,9 @@ if (!db.backfilled) {
   }
   db.backfilled = true;
 }
+// один раз: история биткоина за год (раз в день, кладём раз в неделю)
+if (!db.btcFilled) { try { const j = JSON.parse(await get('https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=365&interval=daily'));
+  let last = ''; for (const [t, v] of j.prices || []) { const s = iso(new Date(t)); if (last && s < last) continue; last = iso(new Date(new Date(s + 'T00:00:00Z').getTime() + 7 * 864e5)); db.hist[s] = { ...(db.hist[s] || {}), btc: Math.round(v) }; } db.btcFilled = true; } catch (e) { log('btc hist FAIL', e.message); } }
 db.hist = Object.fromEntries(Object.entries(db.hist).sort());
 writeFileSync(FILE, JSON.stringify(db));
 log('ok', JSON.stringify(db.today));

@@ -189,7 +189,7 @@ function parseWorkbook(buf) {
         if (/^Счёт/.test(p.type) && /вклад|депозит/i.test(m.type + ' ' + m.comment)) p.type = 'Банковский вклад';
         if (p.rate) { p.cap = guessCap(p); p.rateOver = ''; p.promoTo = ''; p.rateAfter = ''; }
         const T = todayISO(), live = p.history.length && p.history[p.history.length - 1].amt > 0;
-        if (live && p.close && p.close < T && p.open && p.open < p.close) { const term = dnum(p.close) - dnum(p.open); let c = p.close; while (c < T) c = addDays(c, term); p.close = c; p.prolong = true; p.comment = (p.comment ? p.comment + '\n' : '') + 'Срок из таблицы прошёл, а деньги на месте — считаю, что вклад продлён на тот же срок. Поправь, если не так.'; }
+        if (live && p.close && p.close < T && p.open && p.open < p.close) { const term = dnum(p.close) - dnum(p.open); let c = p.close; while (c < T) c = addDays(c, term); p.close = c; p.open = addDays(c, -term); p.prolong = true; p.comment = (p.comment ? p.comment + '\n' : '') + 'Срок из таблицы прошёл, а деньги на месте — считаю, что вклад продлён на тот же срок. Поправь, если не так.'; }
       }
       mv.def = true; { const lastMv = mv.positions.flatMap(q => q.history.map(h => h.d)).sort().pop() || ''; mv.flows = flowsFrom(mv.positions).map(f => (f.src = 'xls', f)).concat(flowsFrom(st.positions).filter(f => f.d > lastMv).map(f => (f.src = 'calc', f)));
         const J = mv.positions.journal || [], al = w => norm(w).replace('эксмо', 'exmo').replace('кошелек ', '').replace('кошелёк ', ''), jp = new Set();

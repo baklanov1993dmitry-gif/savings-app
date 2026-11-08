@@ -118,3 +118,44 @@ function viewConclusions() {
   return `<p class="mut sm" style="margin:0 0 12px">Главное о твоих деньгах одной фразой. Нажми на карточку, чтобы увидеть, как посчитано.</p><div class="col" style="gap:10px">${feed}</div>
   <button class="fold" data-a="ancalc">${S.ancalc ? 'Скрыть расчёты из Excel' : 'Расчёты из Excel: «А если бы в банк», по годам, банки, налог ›'}</button>${S.ancalc ? viewAn() : ''}`;
 }
+
+/* ===== Курсы и недвижимость на Обзоре ===== */
+function rateSeries() {
+  const P = FX.loadPub(), rh = S.data.settings.rh || {}, m = {};
+  const put = (d, k, v) => { if (v > 0) (m[d] = m[d] || {})[k] = v; };
+  for (const d in rh) { const r = rh[d]; put(d, 'usd', r.USD); if (r.KZT) put(d, 'rk', 1 / r.KZT); if (r.KZT && r.USD) put(d, 'uk', r.USD / r.KZT); put(d, 'btc', r.BTC); }
+  if (P && P.hist) for (const d in P.hist) { const h = P.hist[d]; put(d, 'usd', h.usd); put(d, 'rk', h.rubKzt || (h.kzt ? 1 / h.kzt : 0)); put(d, 'uk', h.usdKzt); put(d, 'btc', h.btc); }
+  const T = todayISO(), r = S.data.settings.rates; put(T, 'usd', r.USD); if (r.KZT) put(T, 'rk', 1 / r.KZT); if (P && P.today) { put(T, 'uk', P.today.usdKzt); put(T, 'btc', P.today.btc); }
+  if (!(m[T] && m[T].uk) && r.KZT) put(T, 'uk', r.USD / r.KZT);
+  return Object.keys(m).sort().map(d => ({ d, ...m[d] }));
+}
+function rspark(pts, w = 120, h = 30) {
+  if (pts.length < 2) return ''; const v = pts.map(x => x[1]), mn = Math.min(...v), mx = Math.max(...v), d0 = dnum(pts[0][0]), d1 = dnum(pts[pts.length - 1][0]) || d0 + 1;
+  const xy = pts.map(([d, y]) => `${((dnum(d) - d0) / ((d1 - d0) || 1) * w).toFixed(1)},${(h - 2 - (y - mn) / ((mx - mn) || 1) * (h - 4)).toFixed(1)}`).join(' ');
+  return `<svg class="spk" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none"><polyline points="${xy}" fill="none" stroke="currentColor" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>`;
+}
+function ratesCard() {
+  const R = rateSeries(), T = todayISO(), y1 = addDays(T, -365), w2 = addDays(T, -14);
+  const at = (k, d) => { let b = null; for (const x of R) if (x[k] && x.d <= d) b = x; return b; };
+  const ch = (now, was) => { if (!was || !now) return ''; const p = (now / was - 1) * 100; return `<span class="${p >= 0 ? 'up' : 'dn'}">${p >= 0 ? '▲' : '▼'}${Math.abs(p).toFixed(1).replace('.', ',')}%</span>`; };
+  const row = (k, name, unit, dec) => { const pts = R.filter(x => x[k] && x.d >= y1).map(x => [x.d, x[k]]), last = at(k, T); if (!last) return '';
+    const v = last[k], f = n => dec ? nf2.format(n) : nf.format(Math.round(n)), a2 = at(k, w2), ay = at(k, y1), old = last.d < addDays(T, -7);
+    return `<div class="rt"><div class="rt-n">${name}</div><div class="rt-v"><b>${f(v)}</b> <span class="sm mut">${unit}</span>${k === 'btc' && S.data.settings.rates.USD ? `<div class="sm mut">≈ ${short(v * S.data.settings.rates.USD)} ₽</div>` : ''}${old ? `<div class="sm mut">на ${fmtDate(last.d)}</div>` : ''}</div><div class="rt-c sm"><div>2 нед ${ch(v, a2 && a2[k])}</div><div>год ${ch(v, ay && ay[k])}</div></div><div class="rt-s">${rspark(pts)}</div></div>`; };
+  const k = FX.keys();
+  return `<div class="card"><div class="row" style="margin-bottom:8px"><h3 class="grow">Курсы</h3><span class="sm mut">график за год</span></div>
+  ${row('usd', '$ в рублях', '₽', 1)}${row('rk', '₽ в тенге', '₸', 1)}${row('uk', '$ в тенге', '₸', 1)}${row('btc', 'Биткоин', '$', 0)}
+  ${k.key || k.base ? `<div class="sm mut" style="margin-top:8px">${k.key ? `Ключевая ЦБ РФ <b>${String(k.key).replace('.', ',')}%</b>` : ''}${k.key && k.base ? ' · ' : ''}${k.base ? `базовая НБ РК <b>${String(k.base).replace('.', ',')}%</b>` : ''}</div>` : ''}</div>`;
+}
+function realtyCard() {
+  const m = S.data.settings.m2 || {}, ds = Object.keys(m).sort(); if (!ds.length) return '';
+  const last = ds[ds.length - 1], pr = m[last], T = todayISO(), now = totals().rub, sq = now / pr;
+  const yd = ds.filter(d => d <= addDays(last, -365)).pop() || ds[0], sqY = totalAt(yd) / m[yd], stale = last < addDays(T, -60);
+  const dp = (pr / m[yd] - 1) * 100, dq = sqY ? (sq / sqY - 1) * 100 : 0;
+  return `<div class="card"><div class="row" style="margin-bottom:8px"><h3 class="grow">Недвижимость</h3><button class="btn sm" data-a="m2upd">Обновить цену</button></div>
+  <div class="row" style="gap:16px;align-items:flex-end;flex-wrap:wrap"><div><div class="sm mut">Твои накопления — это</div><b style="font-size:26px">${nf.format(Math.round(sq))} м²</b><div class="sm mut">новостройки в Новосибирске</div></div>
+  <div class="grow" style="min-width:140px;color:var(--acc)">${rspark(ds.map(d => [d, m[d]]), 160, 40)}</div></div>
+  <div class="pkv"><span>Цена 1 м²</span><span><b>${nf.format(pr)} ₽</b> <span class="sm mut">на ${fmtDate(last)}</span></span></div>
+  <div class="pkv"><span>С ${fmtDate(yd)} цена</span><span class="${dp >= 0 ? 'mi' : 'pl'}">${dp >= 0 ? '+' : '−'}${Math.abs(dp).toFixed(0)}%</span></div>
+  ${sqY ? `<div class="pkv"><span>Квадратов тогда / сейчас</span><span>${nf.format(Math.round(sqY))} → <b class="${dq >= 0 ? 'pl' : 'mi'}">${nf.format(Math.round(sq))}</b> (${dq >= 0 ? '+' : '−'}${Math.abs(dq).toFixed(0)}%)</span></div>` : ''}
+  <div class="sm mut" style="margin-top:6px">${dq >= 0 ? 'Накопления растут быстрее цен на жильё.' : 'Цены на жильё растут быстрее накоплений.'}${stale ? ' Цена давно не обновлялась — нажми «Обновить цену».' : ''}</div></div>`;
+}
