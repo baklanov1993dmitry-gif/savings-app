@@ -33,12 +33,13 @@ function flowsFrom(positions) {
     if (!f.to) { const m = f.note.match(/(?:перелож\w*|перевел\w*|переведен\w*)\s+(?:все\s+|деньги\s+)?на\s+([А-Яа-яЁёA-Za-z0-9-]+)/i); if (m) f.to = byTok(m[1]); }
   }
   const seen = new Set();
+  for (const f of res) if (!(f.from && f.to)) f.chg = true;
   return res.filter(f => { const k = flKey(f); if (seen.has(k)) return false; seen.add(k); return true; }).sort((a, b) => a.d < b.d ? 1 : -1);
 }
-const flType = f => f.from && f.to ? 'move' : f.to ? 'in' : 'out';
-const FLT = { move: 'Перевод', in: 'Пополнение', out: 'Снятие' };
+const flType = f => f.chg ? 'chg' : f.from && f.to ? 'move' : f.to ? 'in' : 'out';
+const FLT = { move: 'Перевод', in: 'Пополнение', out: 'Снятие', chg: 'Изменение суммы' };
 const FLSRC = { xls: ['из Excel', 'Записано в листе «движение средств» твоего Excel'], calc: ['вычислено', 'Программа заметила, что сумма в одном месте упала или выросла, и предположила движение'], hand: ['вручную', 'Добавлено тобой в приложении'] };
-const flDis = f => f.src === 'calc' && !(f.from && f.to);
+const flDis = f => !f.chg && f.src === 'calc' && !(f.from && f.to);
 const flKey = f => [f.d, f.from, f.to, f.amt, f.cur].join('|');
 const flPlaces = () => [...new Set(S.data.positions.filter(p => !p.excl).map(p => p.where).concat((S.data.flows || []).flatMap(f => [f.from, f.to])).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ru'));
 function flFiltered() {
@@ -46,11 +47,11 @@ function flFiltered() {
   return (S.data.flows || []).filter(f => (S.fl.dis ? flDis(f) : !flDis(f)) && (!S.fl.t || flType(f) === S.fl.t) && (!S.fl.cur || f.cur === S.fl.cur) && (!S.fl.p || f.from === S.fl.p || f.to === S.fl.p) && (!q || (f.from + ' ' + f.to + ' ' + (f.note || '')).toLowerCase().includes(q))).sort((a, b) => a.d < b.d ? 1 : a.d > b.d ? -1 : 0);
 }
 function flList() {
-  const L = flFiltered(); if (!L.length) return '<div class="card empty"><p>Переводов пока нет. Нажми «+ Перевод» или импортируй лист «движение средств».</p></div>';
+  const L = flFiltered(); if (!L.length) return '<div class="card empty"><p>Записей пока нет. Нажми «+ Перевод» или импортируй лист «движение средств».</p></div>';
   let h = '', mon = '';
   for (const f of L) {
     const m = f.d.slice(0, 7); if (m !== mon) { mon = m; const [y, mm] = m.split('-'); h += `<div class="flmon">${['январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь'][+mm - 1]} ${y}</div>`; }
-    const t = flType(f), sg = t === 'in' ? '+' : t === 'out' ? '−' : '', sr = FLSRC[f.src || 'xls'];
+    const t = flType(f), sg = t === 'in' || (t === 'chg' && f.to) ? '+' : t === 'out' || (t === 'chg' && f.from) ? '−' : '', sr = FLSRC[f.src || 'xls'];
     h += `<div class="item fl" data-a="fedit" data-id="${f.id}" style="--cc:var(--cc-${f.cur})"><div class="fld">${fmtDate(f.d)}</div>
     <div class="grow flw"><span class="fltp ${t}">${FLT[t]}</span><span>${t === 'move' ? esc(f.from) + '</span><span class="fla">→</span><span>' + esc(f.to) : esc(f.to || f.from)}</span><span class="flsrc" title="${esc(sr[1])}">${sr[0]}</span>${f.rub && f.cur !== 'RUB' ? `<div class="sm mut">${fmt(f.rub, 'RUB')} · по ${nf2.format(f.rub / f.amt)} ₽</div>` : ''}${f.note ? `<div class="sm mut flnote">${esc(f.note)}</div>` : ''}</div>
     <div class="fls money ${t}">${sg}${fmt(f.amt, f.cur)}</div>${f.applied ? '' : `<button class="btn sm" data-a="fapply" data-id="${f.id}" title="Изменить суммы в местах">Применить</button>`}</div>`;
@@ -61,7 +62,7 @@ function flList() {
 function flSum(L) {
   const P = S.fl.p; if (!P) return L.length ? '<div class="sm mut" style="margin:0 0 8px">Выбери место в списке — покажу, сколько туда вложено в рублях и по какому среднему курсу.</div>' : '';
   const raw = (c, d) => c === 'RUB' ? 1 : (d ? FX.at(c, d) : S.data.settings.rates[c]) || 0, by = {};
-  for (const f of L) { const k = f.cur, o = by[k] = by[k] || { inA: 0, inR: 0, outA: 0, outR: 0 }, r = f.rub ? f.rub / f.amt : raw(k, f.d); if (f.to === P) { o.inA += f.amt; o.inR += f.amt * r; } if (f.from === P) { o.outA += f.amt; o.outR += f.amt * r; } }
+  for (const f of L) { if (f.chg) continue; const k = f.cur, o = by[k] = by[k] || { inA: 0, inR: 0, outA: 0, outR: 0 }, r = f.rub ? f.rub / f.amt : raw(k, f.d); if (f.to === P) { o.inA += f.amt; o.inR += f.amt * r; } if (f.from === P) { o.outA += f.amt; o.outR += f.amt * r; } }
   const ps = S.data.positions.filter(p => p.where === P); let nowR = 0; ps.forEach(p => nowR += lastAmt(p) * raw(p.cur));
   const nowTxt = ps.map(p => fmt(lastAmt(p), p.cur)).join(' + ');
   const rows = Object.entries(by).map(([c, o]) => { const net = o.inA - o.outA, netR = o.inR - o.outR, avg = c !== 'RUB' && o.inA ? o.inR / o.inA : 0;
@@ -70,13 +71,13 @@ function flSum(L) {
   return `<div class="card" style="margin:0 0 10px"><div class="pt">${esc(P)}: сколько вложено</div>${rows || '<div class="sm mut">По этому месту нет записей с учётом фильтров.</div>'}
   ${Object.keys(by).length > 1 ? `<div class="pkv"><span><b>Итого вложено в рублях</b></span><span><b>${fmt(netR, 'RUB')}</b></span></div>` : ''}
   ${ps.length ? `<div class="pkv"><span>Сейчас</span><span>${nowTxt}${ps.some(p => p.cur !== 'RUB') ? ` · ≈ ${fmt(nowR, 'RUB')}` : ''}</span></div>${rows ? `<div class="pkv"><span><b>Результат в рублях</b></span><span class="${res >= 0 ? 'pl' : 'mi'}"><b>${res >= 0 ? '+' : '−'}${fmt(Math.abs(res), 'RUB')}${netR > 0 ? ` (${res >= 0 ? '+' : '−'}${Math.abs(res / netR * 100).toFixed(1).replace('.', ',')}%)` : ''}</b></span></div>` : ''}` : ''}
-  <div class="sm mut" style="margin-top:6px">Рубли — сколько ты реально заплатил (из журнала покупок в Excel), а где этого нет — по курсу ЦБ на дату перевода. Спорные записи не учтены${S.fl.t || S.fl.cur || S.fl.q ? '; учтены только записи под текущими фильтрами' : ''}.</div></div>`;
+  <div class="sm mut" style="margin-top:6px">Рубли — сколько ты реально заплатил (из журнала покупок в Excel), а где этого нет — по курсу ЦБ на дату перевода. Записи «Изменение суммы» и спорные не учтены${S.fl.t || S.fl.cur || S.fl.q ? '; учтены только записи под текущими фильтрами' : ''}.</div></div>`;
 }
 function viewFlows() {
   const L = flFiltered();
   const pl = flPlaces();
-  return `<p class="mut sm" style="margin:0 0 10px">Как деньги двигались: пополнил, снял или переложил между местами. Метка рядом с местом показывает, откуда запись.</p><div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:10px"><button class="btn pri" data-a="fnew">+ Перевод</button>
-    ${[['', 'Все'], ['in', 'Пополнения'], ['out', 'Снятия'], ['move', 'Переводы']].map(([k, t]) => `<button class="chip ${S.fl.t === k ? 'on' : ''}" data-a="flt" data-id="${k}">${t}</button>`).join('')}
+  return `<p class="mut sm" style="margin:0 0 10px">Летопись: как менялись суммы в местах. «Изменение суммы» программа не называет пополнением: это мог быть курс, рынок или твой взнос. Если знаешь, что это было, открой запись и выбери тип.</p><div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:10px"><button class="btn pri" data-a="fnew">+ Перевод</button>
+    ${[['', 'Все'], ['in', 'Пополнения'], ['out', 'Снятия'], ['move', 'Переводы'], ['chg', 'Изменения']].map(([k, t]) => `<button class="chip ${S.fl.t === k ? 'on' : ''}" data-a="flt" data-id="${k}">${t}</button>`).join('')}
     ${['', 'RUB', 'KZT', 'USD'].map(c => `<button class="chip ${S.fl.cur === c ? 'on' : ''}" data-a="flc" data-id="${c}" ${c ? `style="--cc:var(--cc-${c})"` : ''}>${c ? SYM[c] : 'Все валюты'}</button>`).join('')}
     <select class="inp" data-i="flp" style="max-width:220px"><option value="">Все места</option>${pl.map(x => `<option ${S.fl.p === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select>
     <input class="inp grow" data-i="flq" placeholder="Поиск по местам и заметкам" value="${esc(S.fl.q)}" style="min-width:140px"></div>
@@ -92,6 +93,7 @@ function flEdit(f) {
   <label class="f">Куда<input class="inp" id="ft" list="flpl" value="${esc(d.to)}" placeholder="место или пусто (вне учёта)"></label>
   <datalist id="flpl">${pl.map(x => `<option value="${esc(x)}">`).join('')}</datalist>
   <div class="row"><label class="f grow">Сумма<input class="inp" id="fa" inputmode="decimal" value="${d.amt}"></label><label class="f">Валюта<select class="inp" id="fc">${['RUB', 'KZT', 'USD'].map(c => `<option value="${c}" ${d.cur === c ? 'selected' : ''}>${SYM[c]} ${c}</option>`).join('')}</select></label></div>
+  <label class="f">Что это<select class="inp" id="fk"><option value="">Пополнение, снятие или перевод (по местам выше)</option><option value="chg" ${d.chg ? 'selected' : ''}>Изменение суммы: курс, рынок или не знаю</option></select></label>
   <label class="f">Комментарий<input class="inp" id="fn" value="${esc(d.note || '')}"></label>
   ${d.applied ? '' : '<label class="row"><input type="checkbox" id="fap" checked> Применить к местам (изменить суммы «откуда» и «куда» на эту дату)</label>'}
   <div class="row" style="justify-content:flex-end;gap:8px;margin-top:6px">${isNew ? '' : '<button class="btn bad" data-x="del" style="margin-right:auto">Удалить</button>'}<button class="btn" data-x="c">Отмена</button><button class="btn pri" data-x="ok">Сохранить</button></div></div>`, ov => {
@@ -99,10 +101,10 @@ function flEdit(f) {
       const b = e.target.closest('[data-x]'); if (!b) return; if (b.dataset.x === 'c') return closeModal();
       if (b.dataset.x === 'del') { const old = f; S.data.flows = S.data.flows.filter(z => z.id !== f.id); await persist(); closeModal(); render(); undoToast('Перевод удалён', async () => { S.data.flows.push(old); await persist(); render(); }); return; }
       const amt = num($('#fa', ov).value); if (!amt || amt <= 0) return toast('Укажи сумму');
-      const nf = { ...d, d: $('#fd', ov).value || todayISO(), from: $('#ff', ov).value.trim(), to: $('#ft', ov).value.trim(), amt, cur: $('#fc', ov).value, note: $('#fn', ov).value.trim(), src: isNew ? 'hand' : (d.src || 'hand') };
+      const nf = { ...d, d: $('#fd', ov).value || todayISO(), from: $('#ff', ov).value.trim(), to: $('#ft', ov).value.trim(), amt, cur: $('#fc', ov).value, note: $('#fn', ov).value.trim(), chg: $('#fk', ov).value === 'chg', src: isNew ? 'hand' : (d.src || 'hand') };
       if (!nf.from && !nf.to) return toast('Укажи хотя бы одно место');
       S.data.flows = S.data.flows || []; if (isNew) S.data.flows.push(nf); else Object.assign(S.data.flows.find(z => z.id === d.id), nf);
-      const ap = $('#fap', ov); if (ap && ap.checked) flApply(nf);
+      const ap = $('#fap', ov); if (ap && ap.checked && !nf.chg) flApply(nf);
       await persist(); closeModal(); render();
     });
   });

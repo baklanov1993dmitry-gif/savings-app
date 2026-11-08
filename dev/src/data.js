@@ -210,6 +210,7 @@ function makeOffers() {
 }
 function migrate(d) {
   d.tomb = d.tomb || {}; d.flows = d.flows || [];
+  for (const f of d.flows) if (f.chg === undefined && !f.jr && (f.src === 'xls' || f.src === 'calc') && !(f.from && f.to)) f.chg = true;
   const s = d.settings = d.settings || {}; s.rates = s.rates || { KZT: 0.16, USD: 82 }; if (s.autolock == null) s.autolock = 3;
   if (!Array.isArray(s.offers)) s.offers = []; if (!('goal' in s)) s.goal = null;
   for (const p of d.positions) { if (!('limit' in p)) p.limit = ''; if (!('cap' in p)) p.cap = p.rate ? guessCap(p) : ''; for (const k of ['rateOver', 'promoTo', 'rateAfter']) if (!(k in p)) p[k] = ''; if (!('prolong' in p)) p.prolong = false; if (!('excl' in p)) p.excl = /реголит/i.test(p.where) && /не входит в итог/i.test(p.comment || ''); }
