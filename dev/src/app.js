@@ -164,7 +164,7 @@ const TABS = [['home', 'Обзор', 'home'], ['money', 'Деньги', 'grid'],
 const NAV5 = [['home', 'Обзор', 'home'], ['money', 'Деньги', 'grid'], ['flow', 'Движение', 'swap'], ['an', 'Выводы', 'chart'], ['more', 'Ещё', 'gear']], MORE = ['dates', 'notes', 'set'];
 const TITLES = { more: 'Ещё', home: 'Обзор', money: 'Деньги', flow: 'Движение', dates: 'Ближайшие даты', notes: 'Заметки', an: 'Выводы', set: 'Настройки' };
 function startApp() {
-  migrate(S.data); if (S.data.settings.fx && S.data.settings.fx.mig && !S.data.settings.fx.migUser) S.data.settings.fx.mig = false; S.fresh = true; S.tab = 'home'; bumpIdle(); render(); Sync.init(); FX.fetch().finally(() => FX.auto());
+  migrate(S.data); if (S.data.settings.fx && S.data.settings.fx.mig && !S.data.settings.fx.migUser) S.data.settings.fx.mig = false; S.fresh = true; S.tab = 'home'; bumpIdle(); render(); Sync.init(); FX.fetch().finally(() => FX.auto()); if (S.data.settings.traty) TR.pull().then(() => { if (S.tab === 'flow') render(); });
   if (S.recoveryFlow) { S.recoveryFlow = false; openChangePw(true); }
 }
 function render() {
@@ -178,7 +178,7 @@ function render() {
     ${TABS.map(([k, t, i]) => `<button class="nv ${S.tab === k ? 'on' : ''}" data-a="tab" data-id="${k}">${ic(i)}${t}${k === 'dates' && urgent ? `<span class="tag bad" style="margin-left:auto">${urgent}</span>` : ''}</button>`).join('')}
     <div class="grow"></div><button class="nv" data-a="palette">${ic('search')}Поиск <kbd style="margin-left:auto">Ctrl K</kbd></button></aside>
     <main class="main ${full ? 'fresh' : ''} ${S.tab === 'money' && S.mm === 'table' ? 'wide' : ''}">${S.memOnly ? '<div class="banner">Хранилище браузера недоступно — данные живут только до закрытия вкладки. Сделай экспорт копии в Настройках.</div>' : ''}
-    <div class="top"><h1>${TITLES[S.tab]}</h1><span class="tag" title="версия приложения">v4.25 · 09.11</span>
+    <div class="top"><h1>${TITLES[S.tab]}</h1><span class="tag" title="версия приложения">v4.26 · 09.11</span>
       <button class="ic" data-a="palette" title="Поиск и команды (Ctrl+K)">${ic('search')}</button>
       <button class="ic" data-a="hide" title="Скрыть суммы">${ic(d.settings.hide ? 'eyeoff' : 'eye')}</button>
       <button class="ic" data-a="lock" title="Заблокировать">${ic('lock')}</button></div>
@@ -401,6 +401,7 @@ function viewSet() {
     <div class="row wrap"><button class="btn sm" data-a="chpw">Сменить пароль</button><button class="btn sm" data-a="newrec">Новый ключ восстановления</button><button class="btn sm" data-a="lock">${ic('lock')}Заблокировать</button></div>
     ${Bio.ok() ? (Bio.has() ? `<button class="btn sm" data-a="biooff">Отключить вход по отпечатку</button>` : `<button class="btn sm" data-a="bioon">Включить вход по отпечатку / лицу</button>`) + `<div class="sm mut">Отпечаток открывает только это устройство; мастер-пароль и ключ восстановления остаются главными.</div>` : `<div class="sm mut">Вход по отпечатку заработает, когда приложение открыто по https (установлено как PWA).</div>`}</div>
   <div class="card col"><h3>Курсы к рублю</h3><div class="grid g2" style="gap:10px"><label class="f">1 ₸ = ... ₽<input class="inp" data-i="rKZT" inputmode="decimal" value="${s.rates.KZT}"></label><label class="f">1 $ = ... ₽<input class="inp" data-i="rUSD" inputmode="decimal" value="${s.rates.USD}"></label></div><div class="sm mut">${s.fx && s.fx.mig ? 'Стоят твои курсы — автообновление выключено.' : 'Обновляются сами при открытии (ЦБ РФ' + (s.fx && s.fx.upd ? ', ' + fmtDate(s.fx.upd) : '') + '); офлайн остаются последние.'}</div><label class="f">Запас на курс доллара, ₽ (считать по курсу минус столько — на спред при обмене)<input class="inp" data-i="spUSD" inputmode="decimal" value="${spreadOf('USD')}"></label><label class="row sm" style="gap:8px"><input type="checkbox" data-i="fxmig" ${s.fx && s.fx.mig ? 'checked' : ''}> Мои курсы (не обновлять автоматически)</label><div class="row wrap"><button class="btn sm pri" data-a="snap">Сделать снимок остатков</button><button class="btn sm" data-a="fxnow">Обновить курсы</button></div><label class="row sm" style="gap:8px"><input type="checkbox" data-i="snapoff" ${s.snapOff ? 'checked' : ''}> Не напоминать про снимки</label></div>
+  ${trCard()}
   <div class="card col"><h3>Справочники и цель</h3>
     <button class="btn" data-a="offers">${ic('list')}Ставки банков</button><button class="btn" data-a="goal">${ic('gear')}Цель накопления</button><button class="btn" data-a="palette">${ic('search')}Поиск и команды <kbd>Ctrl K</kbd></button>
     <div class="sm mut">Ставки нужны для подсказки «куда переложить», цель — для прогноза «сколько откладывать в месяц».</div></div>
@@ -471,6 +472,9 @@ async function actions(a, el) {
     case 'fedit': flEdit((S.data.flows || []).find(f => f.id === id)); break;
     case 'fapply': { const f = S.data.flows.find(z => z.id === id); if (!f) break; flApply(f); await persist(); render(); break; }
     case 'flc': S.fl.cur = id; render(); break;
+    case 'trlogin': { const e = $('#tre').value.trim(), p = $('#trp').value; if (!e || !p) { toast('Впиши почту и пароль'); break; } try { await TR.login(e, p); await persist(); toast('Подключено, загружаю траты…'); await TR.pull(); } catch (er) { toast('Не вышло: ' + er.message); } render(); break; }
+    case 'trpull': toast('Загружаю траты…'); await TR.pull(); render(); if (!TR.err) toast('Траты обновлены'); break;
+    case 'troff': delete S.data.settings.traty; await persist(); render(); break;
     case 'flopen': S.fl.open = !S.fl.open; break;
     case 'flt': S.fl.t = id; render(); break;
     case 'fdis': S.fl.dis = !S.fl.dis; render(); break;
@@ -542,8 +546,12 @@ document.addEventListener('click', e => {
   const el = e.target.closest('[data-a]'); if (el && S.data) actions(el.dataset.a, el);
 }, true);
 document.addEventListener('change', e => {
-  const k = e.target.dataset.pc; if (!k || !S.data) return; const st = S.data.settings, o = st[k] = st[k] || {}, v = num(e.target.value);
-  if (e.target.value.trim() === '') delete o[e.target.dataset.id]; else if (v != null && v >= 0) o[e.target.dataset.id] = v; else return toast('Введи число');
+  const k = e.target.dataset.pc; if (!k || !S.data) return; const st = S.data.settings, id = e.target.dataset.id;
+  if (k === 'salary' || k === 'salwhere') { const o = st.salary = st.salary || {}, cur = o[id] == null ? {} : typeof o[id] === 'object' ? o[id] : { amt: o[id] };
+    if (k === 'salwhere') { cur.where = e.target.value; if (e.target.value) st.salLast = e.target.value; } else { const v = num(e.target.value); if (e.target.value.trim() === '') { delete o[id]; return persist().then(() => render()); } if (v == null || v < 0) return toast('Введи число'); cur.amt = v; if (!cur.where && st.salLast) cur.where = st.salLast; }
+    if (cur.amt != null) o[id] = cur; return persist().then(() => render()); }
+  const o = st[k] = st[k] || {}, v = num(e.target.value);
+  if (e.target.value.trim() === '') delete o[id]; else if (v != null && v >= 0) o[id] = v; else return toast('Введи число');
   persist().then(() => render());
 });
 document.addEventListener('input', e => {

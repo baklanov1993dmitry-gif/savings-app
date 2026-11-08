@@ -1799,9 +1799,10 @@ function periods() {
   for (let k = 1; k < ds.length; k++) {
     const d1 = ds[k - 1], d2 = ds[k], r = decomp(d1, d2); let mk = 0;
     for (const p of inTot()) if (/крипт|инвест|акци/i.test(p.type || '')) mk += (lastAmt(p, d2) - lastAmt(p, d1)) * rateOf(p.cur, d2);
-    const s = sal[d2] != null ? +sal[d2] : null, t = spd[d2] != null ? +spd[d2] : null;
+    const sv = sal[d2], s = sv == null ? null : +(sv.amt != null ? sv.amt : sv), sw = sv && sv.where || '', ta = TR.sum(d1, d2), tm = spd[d2] != null ? +spd[d2] : null, t = tm != null ? tm : ta;
+    if (s && sw && inTot().some(p => p.where === sw && /крипт|инвест|акци/i.test(p.type || ''))) mk -= s;
     const known = s != null && t != null, res = known ? r.other - (s - t) - mk : null, base = totalAt(d1) || 1, lim = Math.max(10000, base * 0.01);
-    L.push({ d1, d2, ...r, mk, s, t, res, ok: known ? Math.abs(res) <= lim : null, lim, own: known ? s - t : null, earn: r.fx + r.pct + mk });
+    L.push({ d1, d2, ...r, mk, s, sw, t, tauto: tm == null && ta != null, res, ok: known ? Math.abs(res) <= lim : null, lim, own: known ? s - t : null, earn: r.fx + r.pct + mk });
   }
   return L.reverse();
 }
@@ -1811,7 +1812,7 @@ function periodCard(P) {
   const inp = (k, v, ph) => `<input class="inp pin-in" inputmode="decimal" data-pc="${k}" data-id="${P.d2}" value="${v == null ? '' : v}" placeholder="${ph}">`;
   return `<div class="card per ${P.ok === false ? 'per-bad' : ''}"><div class="row" style="align-items:baseline;gap:8px"><b class="grow">${fmtDate(P.d1)} → ${fmtDate(P.d2)}</b>${st}</div>
   <div class="money" style="font-size:22px;font-weight:700;margin:4px 0 8px;color:var(--${P.dl >= 0 ? 'acc' : 'bad'})">${sg(P.dl)} ₽</div>
-  <div class="pgrid"><span class="mut">Зарплата</span>${inp('salary', P.s, '0')}<span class="mut">Траты</span>${inp('spend', P.t, '0')}
+  <div class="pgrid"><span class="mut">Зарплата</span>${inp('salary', P.s, '0')}<span class="mut">на счёт</span><select class="inp pin-in" data-pc="salwhere" data-id="${P.d2}"><option value="">не указан</option>${[...new Set(inTot().filter(p => !p.archived).map(p => p.where))].sort((a, b) => a.localeCompare(b, 'ru')).map(w => `<option ${P.sw === w ? 'selected' : ''}>${esc(w)}</option>`).join('')}</select><span class="mut">Траты${P.tauto ? ' <span class="tag">из «Трат»</span>' : ''}</span>${P.tauto ? `<input class="inp pin-in" inputmode="decimal" data-pc="spend" data-id="${P.d2}" value="" placeholder="${nf.format(P.t)}" title="Впиши число, чтобы заменить сумму из «Трат»">` : inp('spend', P.t, '0')}
   ${row('Проценты', sg(P.pct))}${row('Курсы ₸ и $', sg(P.fx))}${P.mk ? row('Крипта и инвестиции', sg(P.mk)) : ''}${P.res != null ? row('Не объяснено', sg(P.res), P.ok ? '' : 'dn') : ''}</div>
   ${P.own != null ? `<div class="sm" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--line)">Отложил сам: <b class="money">${sg(P.own)} ₽</b> · деньги заработали: <b class="money">${sg(P.earn)} ₽</b></div>` : ''}</div>`;
 }
@@ -1819,8 +1820,44 @@ function viewPeriods() {
   const L = periods(); if (!L.length) return '<div class="card empty"><p>Нужно хотя бы два снимка, чтобы посчитать период.</p></div>';
   const done = L.filter(p => p.own != null), own = done.reduce((s, p) => s + p.own, 0), earn = done.reduce((s, p) => s + p.earn, 0);
   return `${done.length ? `<div class="card" style="margin-bottom:10px"><div class="sm mut">За ${done.length} период${done.length % 10 === 1 && done.length % 100 !== 11 ? '' : done.length % 10 >= 2 && done.length % 10 <= 4 && (done.length % 100 < 10 || done.length % 100 >= 20) ? 'а' : 'ов'} с заполненной зп</div><div class="row wrap" style="gap:18px;margin-top:4px"><div><div class="sm mut">Отложил сам</div><b class="money" style="font-size:20px">${short(own)} ₽</b></div><div><div class="sm mut">Деньги заработали</div><b class="money" style="font-size:20px">${short(earn)} ₽</b></div></div></div>` : ''}
-  <p class="mut sm" style="margin:0 0 10px">Каждый период — между двумя снимками. Зарплата пишется в снимок, сделанный в день её прихода. Траты — за даты периода. «Не объяснено» до 1% капитала (минимум 10 тыс ₽) считается нормой.</p>
+  <p class="mut sm" style="margin:0 0 10px">Каждый период — между двумя снимками. Зарплата пишется в снимок, сделанный в день её прихода. Траты — за даты периода (сами из «Трат», если подключены в Настройках). Укажи счёт, куда пришла зп: всё сверх неё на этом счёте — проценты. «Не объяснено» до 1% капитала (минимум 10 тыс ₽) считается нормой.</p>
   <div class="col" style="gap:10px">${L.map(periodCard).join('')}</div>`;
+}
+
+/* ===== «Траты»: только чтение итогов расходов по дням из Supabase приложения «Траты» ===== */
+const TR = {
+  URL: 'https://rjiuialimbrnbriqafjl.supabase.co', KEY: 'sb_publishable_Hf5J8zcRXPKBVugh68TyAw_ZXQ6leQX', busy: false, err: '',
+  st() { return S.data.settings.traty || null; },
+  async auth(body, grant) {
+    const r = await fetch(`${this.URL}/auth/v1/token?grant_type=${grant}`, { method: 'POST', headers: { apikey: this.KEY, 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error_description || j.msg || j.message || ('ошибка ' + r.status));
+    S.data.settings.traty = { ...(this.st() || {}), email: j.user && j.user.email || (this.st() || {}).email, rt: j.refresh_token, at: j.access_token, exp: Date.now() + (j.expires_in || 3600) * 1000 - 60000 }; return j.access_token;
+  },
+  login(email, pw) { return this.auth({ email, password: pw }, 'password'); },
+  async token() { const s = this.st(); if (!s || !s.rt) throw new Error('не подключено'); return s.at && s.exp > Date.now() ? s.at : this.auth({ refresh_token: s.rt }, 'refresh_token'); },
+  async pull() {
+    const s = this.st(); if (!s || !s.rt || this.busy) return; this.busy = true; this.err = '';
+    try {
+      const tk = await this.token(), ds = snapDates(), from = ds[0] ? addDays(ds[0], -1) : '2020-01-01', by = {};
+      for (let off = 0; off < 60000; off += 1000) {
+        const r = await fetch(`${this.URL}/rest/v1/fin_tx?select=ts,amount&kind=eq.exp&ts=gte.${from}T00:00:00Z&order=ts.asc&offset=${off}&limit=1000`, { headers: { apikey: this.KEY, Authorization: 'Bearer ' + tk } });
+        if (!r.ok) throw new Error('чтение трат: ' + r.status); const a = await r.json();
+        for (const t of a) { const d = new Date(t.ts), k = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); by[k] = (by[k] || 0) + Math.abs(+t.amount || 0); }
+        if (a.length < 1000) break;
+      }
+      S.data.settings.traty.by = by; S.data.settings.traty.when = new Date().toISOString(); await persist();
+    } catch (e) { this.err = e.message; } finally { this.busy = false; }
+  },
+  sum(d1, d2) { const s = this.st(); if (!s || !s.by) return null; let v = 0; for (const k in s.by) if (k > d1 && k <= d2) v += s.by[k]; return Math.round(v); }
+};
+function trCard() {
+  const s = TR.st();
+  if (s && s.rt) return `<div class="card col"><h3>Траты</h3><div class="sm">Подключено: ${esc(s.email || '')}${s.when ? ` · обновлено ${fmtDate(s.when.slice(0, 10))}` : ''}</div>${TR.err ? `<div class="sm" style="color:var(--bad)">${esc(TR.err)}</div>` : ''}
+    <div class="row wrap"><button class="btn sm" data-a="trpull">Обновить траты</button><button class="btn sm" data-a="troff">Отключить</button></div>
+    <div class="sm mut">Берутся только суммы расходов по дням — без категорий и заметок. Ничего не записывается в «Траты».</div></div>`;
+  return `<div class="card col"><h3>Траты</h3><div class="sm mut">Войди тем же аккаунтом, что в приложении «Траты», — расходы за периоды подтянутся сами.</div>
+    <input class="inp" id="tre" type="email" placeholder="почта" autocomplete="username"><input class="inp" id="trp" type="password" placeholder="пароль" autocomplete="current-password">
+    <button class="btn pri" data-a="trlogin">Подключить</button></div>`;
 }
 
 </script>
@@ -2081,7 +2118,7 @@ const TABS = [['home', 'Обзор', 'home'], ['money', 'Деньги', 'grid'],
 const NAV5 = [['home', 'Обзор', 'home'], ['money', 'Деньги', 'grid'], ['flow', 'Движение', 'swap'], ['an', 'Выводы', 'chart'], ['more', 'Ещё', 'gear']], MORE = ['dates', 'notes', 'set'];
 const TITLES = { more: 'Ещё', home: 'Обзор', money: 'Деньги', flow: 'Движение', dates: 'Ближайшие даты', notes: 'Заметки', an: 'Выводы', set: 'Настройки' };
 function startApp() {
-  migrate(S.data); if (S.data.settings.fx && S.data.settings.fx.mig && !S.data.settings.fx.migUser) S.data.settings.fx.mig = false; S.fresh = true; S.tab = 'home'; bumpIdle(); render(); Sync.init(); FX.fetch().finally(() => FX.auto());
+  migrate(S.data); if (S.data.settings.fx && S.data.settings.fx.mig && !S.data.settings.fx.migUser) S.data.settings.fx.mig = false; S.fresh = true; S.tab = 'home'; bumpIdle(); render(); Sync.init(); FX.fetch().finally(() => FX.auto()); if (S.data.settings.traty) TR.pull().then(() => { if (S.tab === 'flow') render(); });
   if (S.recoveryFlow) { S.recoveryFlow = false; openChangePw(true); }
 }
 function render() {
@@ -2095,7 +2132,7 @@ function render() {
     ${TABS.map(([k, t, i]) => `<button class="nv ${S.tab === k ? 'on' : ''}" data-a="tab" data-id="${k}">${ic(i)}${t}${k === 'dates' && urgent ? `<span class="tag bad" style="margin-left:auto">${urgent}</span>` : ''}</button>`).join('')}
     <div class="grow"></div><button class="nv" data-a="palette">${ic('search')}Поиск <kbd style="margin-left:auto">Ctrl K</kbd></button></aside>
     <main class="main ${full ? 'fresh' : ''} ${S.tab === 'money' && S.mm === 'table' ? 'wide' : ''}">${S.memOnly ? '<div class="banner">Хранилище браузера недоступно — данные живут только до закрытия вкладки. Сделай экспорт копии в Настройках.</div>' : ''}
-    <div class="top"><h1>${TITLES[S.tab]}</h1><span class="tag" title="версия приложения">v4.25 · 09.11</span>
+    <div class="top"><h1>${TITLES[S.tab]}</h1><span class="tag" title="версия приложения">v4.26 · 09.11</span>
       <button class="ic" data-a="palette" title="Поиск и команды (Ctrl+K)">${ic('search')}</button>
       <button class="ic" data-a="hide" title="Скрыть суммы">${ic(d.settings.hide ? 'eyeoff' : 'eye')}</button>
       <button class="ic" data-a="lock" title="Заблокировать">${ic('lock')}</button></div>
@@ -2318,6 +2355,7 @@ function viewSet() {
     <div class="row wrap"><button class="btn sm" data-a="chpw">Сменить пароль</button><button class="btn sm" data-a="newrec">Новый ключ восстановления</button><button class="btn sm" data-a="lock">${ic('lock')}Заблокировать</button></div>
     ${Bio.ok() ? (Bio.has() ? `<button class="btn sm" data-a="biooff">Отключить вход по отпечатку</button>` : `<button class="btn sm" data-a="bioon">Включить вход по отпечатку / лицу</button>`) + `<div class="sm mut">Отпечаток открывает только это устройство; мастер-пароль и ключ восстановления остаются главными.</div>` : `<div class="sm mut">Вход по отпечатку заработает, когда приложение открыто по https (установлено как PWA).</div>`}</div>
   <div class="card col"><h3>Курсы к рублю</h3><div class="grid g2" style="gap:10px"><label class="f">1 ₸ = ... ₽<input class="inp" data-i="rKZT" inputmode="decimal" value="${s.rates.KZT}"></label><label class="f">1 $ = ... ₽<input class="inp" data-i="rUSD" inputmode="decimal" value="${s.rates.USD}"></label></div><div class="sm mut">${s.fx && s.fx.mig ? 'Стоят твои курсы — автообновление выключено.' : 'Обновляются сами при открытии (ЦБ РФ' + (s.fx && s.fx.upd ? ', ' + fmtDate(s.fx.upd) : '') + '); офлайн остаются последние.'}</div><label class="f">Запас на курс доллара, ₽ (считать по курсу минус столько — на спред при обмене)<input class="inp" data-i="spUSD" inputmode="decimal" value="${spreadOf('USD')}"></label><label class="row sm" style="gap:8px"><input type="checkbox" data-i="fxmig" ${s.fx && s.fx.mig ? 'checked' : ''}> Мои курсы (не обновлять автоматически)</label><div class="row wrap"><button class="btn sm pri" data-a="snap">Сделать снимок остатков</button><button class="btn sm" data-a="fxnow">Обновить курсы</button></div><label class="row sm" style="gap:8px"><input type="checkbox" data-i="snapoff" ${s.snapOff ? 'checked' : ''}> Не напоминать про снимки</label></div>
+  ${trCard()}
   <div class="card col"><h3>Справочники и цель</h3>
     <button class="btn" data-a="offers">${ic('list')}Ставки банков</button><button class="btn" data-a="goal">${ic('gear')}Цель накопления</button><button class="btn" data-a="palette">${ic('search')}Поиск и команды <kbd>Ctrl K</kbd></button>
     <div class="sm mut">Ставки нужны для подсказки «куда переложить», цель — для прогноза «сколько откладывать в месяц».</div></div>
@@ -2388,6 +2426,9 @@ async function actions(a, el) {
     case 'fedit': flEdit((S.data.flows || []).find(f => f.id === id)); break;
     case 'fapply': { const f = S.data.flows.find(z => z.id === id); if (!f) break; flApply(f); await persist(); render(); break; }
     case 'flc': S.fl.cur = id; render(); break;
+    case 'trlogin': { const e = $('#tre').value.trim(), p = $('#trp').value; if (!e || !p) { toast('Впиши почту и пароль'); break; } try { await TR.login(e, p); await persist(); toast('Подключено, загружаю траты…'); await TR.pull(); } catch (er) { toast('Не вышло: ' + er.message); } render(); break; }
+    case 'trpull': toast('Загружаю траты…'); await TR.pull(); render(); if (!TR.err) toast('Траты обновлены'); break;
+    case 'troff': delete S.data.settings.traty; await persist(); render(); break;
     case 'flopen': S.fl.open = !S.fl.open; break;
     case 'flt': S.fl.t = id; render(); break;
     case 'fdis': S.fl.dis = !S.fl.dis; render(); break;
@@ -2459,8 +2500,12 @@ document.addEventListener('click', e => {
   const el = e.target.closest('[data-a]'); if (el && S.data) actions(el.dataset.a, el);
 }, true);
 document.addEventListener('change', e => {
-  const k = e.target.dataset.pc; if (!k || !S.data) return; const st = S.data.settings, o = st[k] = st[k] || {}, v = num(e.target.value);
-  if (e.target.value.trim() === '') delete o[e.target.dataset.id]; else if (v != null && v >= 0) o[e.target.dataset.id] = v; else return toast('Введи число');
+  const k = e.target.dataset.pc; if (!k || !S.data) return; const st = S.data.settings, id = e.target.dataset.id;
+  if (k === 'salary' || k === 'salwhere') { const o = st.salary = st.salary || {}, cur = o[id] == null ? {} : typeof o[id] === 'object' ? o[id] : { amt: o[id] };
+    if (k === 'salwhere') { cur.where = e.target.value; if (e.target.value) st.salLast = e.target.value; } else { const v = num(e.target.value); if (e.target.value.trim() === '') { delete o[id]; return persist().then(() => render()); } if (v == null || v < 0) return toast('Введи число'); cur.amt = v; if (!cur.where && st.salLast) cur.where = st.salLast; }
+    if (cur.amt != null) o[id] = cur; return persist().then(() => render()); }
+  const o = st[k] = st[k] || {}, v = num(e.target.value);
+  if (e.target.value.trim() === '') delete o[id]; else if (v != null && v >= 0) o[id] = v; else return toast('Введи число');
   persist().then(() => render());
 });
 document.addEventListener('input', e => {

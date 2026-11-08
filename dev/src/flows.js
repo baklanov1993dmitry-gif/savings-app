@@ -127,19 +127,20 @@ function periods() {
   for (let k = 1; k < ds.length; k++) {
     const d1 = ds[k - 1], d2 = ds[k], r = decomp(d1, d2); let mk = 0;
     for (const p of inTot()) if (/крипт|инвест|акци/i.test(p.type || '')) mk += (lastAmt(p, d2) - lastAmt(p, d1)) * rateOf(p.cur, d2);
-    const s = sal[d2] != null ? +sal[d2] : null, t = spd[d2] != null ? +spd[d2] : null;
+    const sv = sal[d2], s = sv == null ? null : +(sv.amt != null ? sv.amt : sv), sw = sv && sv.where || '', ta = TR.sum(d1, d2), tm = spd[d2] != null ? +spd[d2] : null, t = tm != null ? tm : ta;
+    if (s && sw && inTot().some(p => p.where === sw && /крипт|инвест|акци/i.test(p.type || ''))) mk -= s;
     const known = s != null && t != null, res = known ? r.other - (s - t) - mk : null, base = totalAt(d1) || 1, lim = Math.max(10000, base * 0.01);
-    L.push({ d1, d2, ...r, mk, s, t, res, ok: known ? Math.abs(res) <= lim : null, lim, own: known ? s - t : null, earn: r.fx + r.pct + mk });
+    L.push({ d1, d2, ...r, mk, s, sw, t, tauto: tm == null && ta != null, res, ok: known ? Math.abs(res) <= lim : null, lim, own: known ? s - t : null, earn: r.fx + r.pct + mk });
   }
   return L.reverse();
 }
 function periodCard(P) {
   const sg = v => (v >= 0 ? '+' : '−') + short(Math.abs(v)), row = (l, v, c = '') => `<span class="mut">${l}</span><span class="money ${c}">${v}</span>`;
-  const st = P.ok == null ? `<span class="tag">впиши зп и траты</span>` : P.ok ? `<span class="tag" style="color:var(--acc)">сошлось</span>` : `<span class="tag bad">не сошлось на ${short(Math.abs(P.res))}</span>`;
+  const st = P.ok == null ? `<span class="tag">впиши ${P.s == null && P.t == null ? 'зп и траты' : P.s == null ? 'зп' : 'траты'}</span>` : P.ok ? `<span class="tag" style="color:var(--acc)">сошлось</span>` : `<span class="tag bad">не сошлось на ${short(Math.abs(P.res))}</span>`;
   const inp = (k, v, ph) => `<input class="inp pin-in" inputmode="decimal" data-pc="${k}" data-id="${P.d2}" value="${v == null ? '' : v}" placeholder="${ph}">`;
   return `<div class="card per ${P.ok === false ? 'per-bad' : ''}"><div class="row" style="align-items:baseline;gap:8px"><b class="grow">${fmtDate(P.d1)} → ${fmtDate(P.d2)}</b>${st}</div>
   <div class="money" style="font-size:22px;font-weight:700;margin:4px 0 8px;color:var(--${P.dl >= 0 ? 'acc' : 'bad'})">${sg(P.dl)} ₽</div>
-  <div class="pgrid"><span class="mut">Зарплата</span>${inp('salary', P.s, '0')}<span class="mut">Траты</span>${inp('spend', P.t, '0')}
+  <div class="pgrid"><span class="mut">Зарплата</span>${inp('salary', P.s, '0')}<span class="mut">на счёт</span><select class="inp pin-in" data-pc="salwhere" data-id="${P.d2}"><option value="">не указан</option>${[...new Set(inTot().filter(p => !p.archived).map(p => p.where))].sort((a, b) => a.localeCompare(b, 'ru')).map(w => `<option ${P.sw === w ? 'selected' : ''}>${esc(w)}</option>`).join('')}</select><span class="mut">Траты${P.tauto ? ' <span class="tag">из «Трат»</span>' : ''}</span>${P.tauto ? `<input class="inp pin-in" inputmode="decimal" data-pc="spend" data-id="${P.d2}" value="" placeholder="${nf.format(P.t)}" title="Впиши число, чтобы заменить сумму из «Трат»">` : inp('spend', P.t, '0')}
   ${row('Проценты', sg(P.pct))}${row('Курсы ₸ и $', sg(P.fx))}${P.mk ? row('Крипта и инвестиции', sg(P.mk)) : ''}${P.res != null ? row('Не объяснено', sg(P.res), P.ok ? '' : 'dn') : ''}</div>
   ${P.own != null ? `<div class="sm" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--line)">Отложил сам: <b class="money">${sg(P.own)} ₽</b> · деньги заработали: <b class="money">${sg(P.earn)} ₽</b></div>` : ''}</div>`;
 }
@@ -147,6 +148,42 @@ function viewPeriods() {
   const L = periods(); if (!L.length) return '<div class="card empty"><p>Нужно хотя бы два снимка, чтобы посчитать период.</p></div>';
   const done = L.filter(p => p.own != null), own = done.reduce((s, p) => s + p.own, 0), earn = done.reduce((s, p) => s + p.earn, 0);
   return `${done.length ? `<div class="card" style="margin-bottom:10px"><div class="sm mut">За ${done.length} период${done.length % 10 === 1 && done.length % 100 !== 11 ? '' : done.length % 10 >= 2 && done.length % 10 <= 4 && (done.length % 100 < 10 || done.length % 100 >= 20) ? 'а' : 'ов'} с заполненной зп</div><div class="row wrap" style="gap:18px;margin-top:4px"><div><div class="sm mut">Отложил сам</div><b class="money" style="font-size:20px">${short(own)} ₽</b></div><div><div class="sm mut">Деньги заработали</div><b class="money" style="font-size:20px">${short(earn)} ₽</b></div></div></div>` : ''}
-  <p class="mut sm" style="margin:0 0 10px">Каждый период — между двумя снимками. Зарплата пишется в снимок, сделанный в день её прихода. Траты — за даты периода. «Не объяснено» до 1% капитала (минимум 10 тыс ₽) считается нормой.</p>
+  <p class="mut sm" style="margin:0 0 10px">Каждый период — между двумя снимками. Зарплата пишется в снимок, сделанный в день её прихода. Траты — за даты периода (сами из «Трат», если подключены в Настройках). Укажи счёт, куда пришла зп: всё сверх неё на этом счёте — проценты. «Не объяснено» до 1% капитала (минимум 10 тыс ₽) считается нормой.</p>
   <div class="col" style="gap:10px">${L.map(periodCard).join('')}</div>`;
+}
+
+/* ===== «Траты»: только чтение итогов расходов по дням из Supabase приложения «Траты» ===== */
+const TR = {
+  URL: 'https://rjiuialimbrnbriqafjl.supabase.co', KEY: 'sb_publishable_Hf5J8zcRXPKBVugh68TyAw_ZXQ6leQX', busy: false, err: '',
+  st() { return S.data.settings.traty || null; },
+  async auth(body, grant) {
+    const r = await fetch(`${this.URL}/auth/v1/token?grant_type=${grant}`, { method: 'POST', headers: { apikey: this.KEY, 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error_description || j.msg || j.message || ('ошибка ' + r.status));
+    S.data.settings.traty = { ...(this.st() || {}), email: j.user && j.user.email || (this.st() || {}).email, rt: j.refresh_token, at: j.access_token, exp: Date.now() + (j.expires_in || 3600) * 1000 - 60000 }; return j.access_token;
+  },
+  login(email, pw) { return this.auth({ email, password: pw }, 'password'); },
+  async token() { const s = this.st(); if (!s || !s.rt) throw new Error('не подключено'); return s.at && s.exp > Date.now() ? s.at : this.auth({ refresh_token: s.rt }, 'refresh_token'); },
+  async pull() {
+    const s = this.st(); if (!s || !s.rt || this.busy) return; this.busy = true; this.err = '';
+    try {
+      const tk = await this.token(), ds = snapDates(), from = ds[0] ? addDays(ds[0], -1) : '2020-01-01', by = {};
+      for (let off = 0; off < 60000; off += 1000) {
+        const r = await fetch(`${this.URL}/rest/v1/fin_tx?select=ts,amount&kind=eq.exp&ts=gte.${from}T00:00:00Z&order=ts.asc&offset=${off}&limit=1000`, { headers: { apikey: this.KEY, Authorization: 'Bearer ' + tk } });
+        if (!r.ok) throw new Error('чтение трат: ' + r.status); const a = await r.json();
+        for (const t of a) { const d = new Date(t.ts), k = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); by[k] = (by[k] || 0) + Math.abs(+t.amount || 0); }
+        if (a.length < 1000) break;
+      }
+      S.data.settings.traty.by = by; S.data.settings.traty.when = new Date().toISOString(); await persist();
+    } catch (e) { this.err = e.message; } finally { this.busy = false; }
+  },
+  sum(d1, d2) { const s = this.st(); if (!s || !s.by) return null; let v = 0; for (const k in s.by) if (k > d1 && k <= d2) v += s.by[k]; return Math.round(v); }
+};
+function trCard() {
+  const s = TR.st();
+  if (s && s.rt) return `<div class="card col"><h3>Траты</h3><div class="sm">Подключено: ${esc(s.email || '')}${s.when ? ` · обновлено ${fmtDate(s.when.slice(0, 10))}` : ''}</div>${TR.err ? `<div class="sm" style="color:var(--bad)">${esc(TR.err)}</div>` : ''}
+    <div class="row wrap"><button class="btn sm" data-a="trpull">Обновить траты</button><button class="btn sm" data-a="troff">Отключить</button></div>
+    <div class="sm mut">Берутся только суммы расходов по дням — без категорий и заметок. Ничего не записывается в «Траты».</div></div>`;
+  return `<div class="card col"><h3>Траты</h3><div class="sm mut">Войди тем же аккаунтом, что в приложении «Траты», — расходы за периоды подтянутся сами.</div>
+    <input class="inp" id="tre" type="email" placeholder="почта" autocomplete="username"><input class="inp" id="trp" type="password" placeholder="пароль" autocomplete="current-password">
+    <button class="btn pri" data-a="trlogin">Подключить</button></div>`;
 }
