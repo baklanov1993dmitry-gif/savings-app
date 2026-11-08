@@ -28,7 +28,7 @@ const FX = {
     if (f.mig) { await persist(); return true; }
     const rt = S.data.settings.rates, ch = Math.abs(rt.USD - usd) > 1e-6 || Math.abs(rt.KZT - kzt) > 1e-6;
     rt.USD = f.auto.USD; rt.KZT = f.auto.KZT;
-    if (ch) { await persist(); if (S.tab === 'home' || S.tab === 'set' || S.tab === 'board') render(); }
+    if (ch) { await persist(); if (S.tab === 'home' || S.tab === 'set' || S.tab === 'money') render(); }
     return true;
   },
   /** ключевые ставки: ЦБ РФ и НБ РК */
