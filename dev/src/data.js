@@ -90,9 +90,10 @@ function importMovement(ws) {
     if (t === 'где') col.where = c; else if (t === 'условия') col.cond = c; else if (t === 'дата открытия') col.open = c;
     else if (t === 'дата закрытия') col.close = c; else if (t === 'дата изменения') col.chd = c; else if (t === 'сумма изменения') col.cha = c; else if (t.startsWith('комментар')) col.cm = c;
   }
-  const out = [];
+  const out = [], journal = [];
   for (let r = hr + 1; r <= S.r1; r++) {
     const raw = sv(S.get(r, tc)); if (!raw) continue;
+    if (/крипт/i.test(raw) && col.chd != null && col.cha != null) { const jd = anyDate(S.get(r, col.chd)), ja = S.get(r, col.cha), ju = col.cm != null ? S.get(r, col.cm + 1) : null, jw = sv(col.where != null ? S.get(r, col.where) : ''); if (jd && typeof ja === 'number' && ja !== 0 && jw) journal.push({ d: jd, where: jw, rub: Math.abs(ja), out: ja < 0, usd: typeof ju === 'number' && ju > 0 ? ju : null, note: sv(col.cm != null ? S.get(r, col.cm) : '') }); }
     const [base, ...rest] = raw.split('_'); const extra = rest.join('_').trim();
     const where = sv(col.where != null ? S.get(r, col.where) : '') || extra || '';
     const history = [], notes = [];
@@ -109,6 +110,7 @@ function importMovement(ws) {
     const cl = ha && ha.amt !== 0 && ha.d < lastD && close && close <= lastD ? (close > ha.d ? close : addDays(ha.d, 1)) : '';
     out.push({ notes, id: uid(), type: normType(base), where: where || base.trim(), cur: guessCur(raw, where), rate: m ? Number(m[1].replace(',', '.')) : pureRate(cond), cond, open, close, reopen: '', comment, history, archived: history.length > 0 && history[history.length - 1].amt === 0, _cl: cl });
   }
+  out.journal = journal;
   return out;
 }
 
@@ -143,6 +145,11 @@ function importState(ws) {
   const fxK = num(meta.fxK), fxU = num(meta.fxU);
   out.meta = { date: lastR[1], rates: { KZT: fxK ? +(1 / fxK).toFixed(6) : null, USD: fxU || null }, sheetTotal: num(meta.tAll) };
   const rhist = {}; for (const [r, dd] of rows) { const k = meta.fxK != null ? S.get(r, meta.fxK) : null, u = meta.fxU != null ? S.get(r, meta.fxU) : null; if (typeof k === 'number' && k > 0 && typeof u === 'number' && u > 0) rhist[dd] = { KZT: +(1 / k).toFixed(6), USD: u }; } out.meta.rh = rhist;
+  const hc = re => { for (let c = dc + 1; c <= S.c1; c++) if (re.test(sv(S.get(hr, c)).toLowerCase())) return c; return null; }, cB = hc(/биткоин|btc/), cM = hc(/кв\.?\s*м/);
+  if (cB != null) for (const [r, dd] of rows) { const v = S.get(r, cB); if (typeof v === 'number' && v > 0) (rhist[dd] = rhist[dd] || {}).BTC = v; }
+  if (cM != null) { out.meta.m2 = {}; for (const [r, dd] of rows) { const v = S.get(r, cM); if (typeof v === 'number' && v > 0) out.meta.m2[dd] = v; } }
+  { const g = c => c != null ? S.get(lastR[0], c) : null, tr = g(meta.tRub), tk = g(meta.tKzt), tu = g(meta.tUsd), ta = g(meta.tAll), k = g(meta.fxK), u = g(meta.fxU);
+    if ([tr, tk, tu, ta, k, u].every(x => typeof x === 'number') && tu > 0 && k > 0) { const sp = Math.round((tr + tk / k + tu * u - ta) / tu * 2) / 2; if (sp > 0 && sp <= 20) out.meta.spreadUSD = sp; } }
   return out;
 }
 
@@ -184,7 +191,11 @@ function parseWorkbook(buf) {
         const T = todayISO(), live = p.history.length && p.history[p.history.length - 1].amt > 0;
         if (live && p.close && p.close < T && p.open && p.open < p.close) { const term = dnum(p.close) - dnum(p.open); let c = p.close; while (c < T) c = addDays(c, term); p.close = c; p.prolong = true; p.comment = (p.comment ? p.comment + '\n' : '') + 'Срок из таблицы прошёл, а деньги на месте — считаю, что вклад продлён на тот же срок. Поправь, если не так.'; }
       }
-      mv.def = true; { const lastMv = mv.positions.flatMap(q => q.history.map(h => h.d)).sort().pop() || ''; mv.flows = flowsFrom(mv.positions).map(f => (f.src = 'xls', f)).concat(flowsFrom(st.positions).filter(f => f.d > lastMv).map(f => (f.src = 'calc', f))); } mv.positions = null; mv.count = mv.flows.length; mv.desc = 'журнал переводов → вкладка «Движение»; условия и даты уже подтянуты к местам «состояния» (' + hit + ' совпало). Суммы в места не попадают — задвоения нет';
+      mv.def = true; { const lastMv = mv.positions.flatMap(q => q.history.map(h => h.d)).sort().pop() || ''; mv.flows = flowsFrom(mv.positions).map(f => (f.src = 'xls', f)).concat(flowsFrom(st.positions).filter(f => f.d > lastMv).map(f => (f.src = 'calc', f)));
+        const J = mv.positions.journal || [], al = w => norm(w).replace('эксмо', 'exmo').replace('кошелек ', '').replace('кошелёк ', ''), jp = new Set();
+        const jf = J.map(j => { const k = al(j.where), sp = st.positions.find(p => { const n = norm(p.where); return n && (n === k || n.includes(k) || k.includes(n)); }), w = sp ? sp.where : j.where; jp.add(w);
+          return { id: uid(), d: j.d, from: j.out ? w : '', to: j.out ? '' : w, amt: j.usd || j.rub, cur: j.usd ? 'USD' : 'RUB', rub: j.rub, note: j.note, applied: true, src: 'xls', jr: 1 }; });
+        if (jf.length) mv.flows = mv.flows.filter(f => !jp.has(f.to) && !jp.has(f.from)).concat(jf); } mv.positions = null; mv.count = mv.flows.length; mv.desc = 'журнал переводов → вкладка «Движение»; условия и даты уже подтянуты к местам «состояния» (' + hit + ' совпало). Суммы в места не попадают — задвоения нет';
     }
     const app = st.positions.filter(p => !p.archived).reduce((s, p) => s + p.history[p.history.length - 1].amt * (p.cur === 'KZT' ? rt.KZT : p.cur === 'USD' ? rt.USD : 1), 0);
     st.meta = meta; st.desc = `сколько где лежит на ${meta.date ? fmtDate(meta.date) : 'последнюю дату'}. В приложении: ${Math.round(app).toLocaleString('ru-RU')} ₽` + (meta.sheetTotal ? `, в твоей таблице «общий итог»: ${Math.round(meta.sheetTotal).toLocaleString('ru-RU')} ₽` : '');
