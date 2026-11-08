@@ -1427,10 +1427,12 @@ function yearGrowth() {
   const s = { dl: 0, fx: 0, pct: 0, other: 0 }; for (let k = 1; k < pts.length; k++) { const r = decomp(pts[k - 1], pts[k]); for (const x in s) s[x] += r[x]; }
   return { ...s, from: st, to: end, base: totalAt(st) };
 }
+const TAXKEY = { 2025: 21, 2026: 16 };
 function taxInfo() {
-  const T = todayISO(), y = T.slice(0, 4), j1 = y + '-01-01', d31 = y + '-12-31', key = FX.keys().key || A().tax.key || 0; let inc = 0;
-  for (const p of S.data.positions) if (p.cur === 'RUB' && p.rate && p.cap) inc += p.cap === 'end' ? (p.close && p.close >= j1 && p.close <= d31 ? endIncome(p, p.close) : 0) : segIncome(p, j1, p.close && p.close < d31 && !p.prolong ? p.close : d31);
-  const free = 1e6 * key / 100; return { inc, free, key, y };
+  const T = todayISO(), y = T.slice(0, 4), j1 = y + '-01-01', d31 = y + '-12-31', cur = FX.keys().key || A().tax.key || 0, key = Math.max(TAXKEY[y] || 0, cur); let inc = 0; const rows = [], skip = [];
+  for (const p of S.data.positions) { if (p.cur !== 'RUB' || p.archived || p.excl) continue; if (!(p.rate && p.cap)) { if (lastAmt(p) > 0 && /вклад|счёт|счет/i.test(p.type || '')) skip.push(p); continue; }
+    const v = p.cap === 'end' ? (p.close && p.close >= j1 && p.close <= d31 ? endIncome(p, p.close) : 0) : segIncome(p, j1, p.close && p.close < d31 && !p.prolong ? p.close : d31); inc += v; if (v > 0) rows.push({ p, v }); }
+  rows.sort((a, b) => b.v - a.v); const free = 1e6 * key / 100; return { inc, free, key, y, rows, skip };
 }
 function riskInfo() {
   const t = totals(), tot = t.rub || 1, sh = c => (t.by[c] || 0) * rateOf(c) / tot * 100;
@@ -1489,7 +1491,7 @@ function conclusions() {
   if (rk.top && rk.top.s > 30) vc('w', `${rk.top.s.toFixed(0)}% всех денег в одном банке: ${esc(rk.top.w)}`, 'Почему важно', `Доля банка (все его вклады и счета вместе) в общей сумме в рублях. Если с этим банком что-то случится, под удар попадёт именно эта часть.${/кз_|kz/i.test(rk.top.w) ? '' : ' Страховка АСВ покрывает до 1,4 млн ₽ на банк.'}`);
   if (rk.cur[1][1] > 40 && T) vc('w', `${rk.cur[1][1].toFixed(0)}% денег в тенге: ослабление тенге на 5% съест около ${short(T * rk.cur[1][1] / 100 * 0.05)} ₽`, 'Как посчитано', `Доля тенге в капитале, умноженная на 5%. Это пример, а не прогноз.`);
   if (rk.crypto > 5) vc('w', `Крипта — ${rk.crypto.toFixed(0)}% капитала`, 'Почему важно', 'Сумма мест типа «крипта» относительно всего капитала в рублях. Цена крипты скачет сильнее, чем по вкладам.');
-  if (tx.free && tx.inc > 0) { const tp = tx.inc / tx.free * 100; vc(tp >= 80 ? 'w' : 'g', tp >= 100 ? `Проценты по вкладам РФ за ${tx.y} выше необлагаемой суммы: будет налог` : `Налог с процентов за ${tx.y}: использовано ${tp.toFixed(0)}% необлагаемой суммы`, 'Как посчитано', `Оценка процентов по рублёвым вкладам за год: ${fmt(tx.inc, 'RUB')}. Необлагаемая сумма — 1 млн ₽ × ключевая ставка ${String(tx.key).replace('.', ',')}% = ${fmt(tx.free, 'RUB')}.`); }
+  if (tx.free && tx.inc > 0) { const tp = tx.inc / tx.free * 100; vc(tp >= 80 ? 'w' : 'g', tp >= 100 ? `Проценты по вкладам РФ за ${tx.y} выше необлагаемой суммы: будет налог` : `Налог с процентов за ${tx.y}: использовано ${tp.toFixed(0)}% необлагаемой суммы`, 'Как посчитано', `Оценка процентов по рублёвым вкладам за год: ${fmt(tx.inc, 'RUB')}. Необлагаемая сумма — 1 млн ₽ × наибольшая ключевая ставка на 1-е число месяцев года (${String(tx.key).replace('.', ',')}%) = ${fmt(tx.free, 'RUB')}.<br>Из чего сложились проценты: ${tx.rows.slice(0, 12).map(r => esc(r.p.where) + ' ' + short(r.v) + ' ₽').join(' · ') || 'нет мест со ставкой'}.${tx.skip.length ? `<br>Не учтены (нет ставки или типа начисления в карточке): ${tx.skip.slice(0, 8).map(p => esc(p.where)).join(', ')}.` : ''} Считаются только рублёвые места со ставкой; проценты за весь год, включая то, что ещё не начислено.`); }
   if (w && Math.abs(w.dl) > 0) vc('n', `С ${fmtDate(w.d1)} по ${fmtDate(w.d2)} капитал ${w.dl >= 0 ? 'вырос' : 'упал'} на ${short(Math.abs(w.dl))} ₽`, 'Из чего сложилось', `Проценты ${w.pct >= 0 ? '+' : '−'}${short(Math.abs(w.pct))} ₽, курсы ${w.fx >= 0 ? '+' : '−'}${short(Math.abs(w.fx))} ₽, остальное ${w.other >= 0 ? '+' : '−'}${short(Math.abs(w.other))} ₽ (пополнения, снятия, рынок).${w.mv.length ? ' Больше всего изменились: ' + w.mv.slice(0, 3).map(x => esc(x.p.where)).join(', ') + '.' : ''}`);
   return L;
 }
@@ -2058,7 +2060,7 @@ function render() {
     ${TABS.map(([k, t, i]) => `<button class="nv ${S.tab === k ? 'on' : ''}" data-a="tab" data-id="${k}">${ic(i)}${t}${k === 'dates' && urgent ? `<span class="tag bad" style="margin-left:auto">${urgent}</span>` : ''}</button>`).join('')}
     <div class="grow"></div><button class="nv" data-a="palette">${ic('search')}Поиск <kbd style="margin-left:auto">Ctrl K</kbd></button></aside>
     <main class="main ${full ? 'fresh' : ''} ${S.tab === 'money' && S.mm === 'table' ? 'wide' : ''}">${S.memOnly ? '<div class="banner">Хранилище браузера недоступно — данные живут только до закрытия вкладки. Сделай экспорт копии в Настройках.</div>' : ''}
-    <div class="top"><h1>${TITLES[S.tab]}</h1><span class="tag" title="версия приложения">v4.21 · 08.11</span>
+    <div class="top"><h1>${TITLES[S.tab]}</h1><span class="tag" title="версия приложения">v4.22 · 08.11</span>
       <button class="ic" data-a="palette" title="Поиск и команды (Ctrl+K)">${ic('search')}</button>
       <button class="ic" data-a="hide" title="Скрыть суммы">${ic(d.settings.hide ? 'eyeoff' : 'eye')}</button>
       <button class="ic" data-a="lock" title="Заблокировать">${ic('lock')}</button></div>
