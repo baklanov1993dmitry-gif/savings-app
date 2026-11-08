@@ -1808,7 +1808,7 @@ function periods() {
 }
 function periodCard(P) {
   const sg = v => (v >= 0 ? '+' : '−') + short(Math.abs(v)), row = (l, v, c = '') => `<span class="mut">${l}</span><span class="money ${c}">${v}</span>`;
-  const st = P.ok == null ? `<span class="tag">впиши зп и траты</span>` : P.ok ? `<span class="tag" style="color:var(--acc)">сошлось</span>` : `<span class="tag bad">не сошлось на ${short(Math.abs(P.res))}</span>`;
+  const st = P.ok == null ? `<span class="tag">впиши ${P.s == null && P.t == null ? 'зп и траты' : P.s == null ? 'зп' : 'траты'}</span>` : P.ok ? `<span class="tag" style="color:var(--acc)">сошлось</span>` : `<span class="tag bad">не сошлось на ${short(Math.abs(P.res))}</span>`;
   const inp = (k, v, ph) => `<input class="inp pin-in" inputmode="decimal" data-pc="${k}" data-id="${P.d2}" value="${v == null ? '' : v}" placeholder="${ph}">`;
   return `<div class="card per ${P.ok === false ? 'per-bad' : ''}"><div class="row" style="align-items:baseline;gap:8px"><b class="grow">${fmtDate(P.d1)} → ${fmtDate(P.d2)}</b>${st}</div>
   <div class="money" style="font-size:22px;font-weight:700;margin:4px 0 8px;color:var(--${P.dl >= 0 ? 'acc' : 'bad'})">${sg(P.dl)} ₽</div>
