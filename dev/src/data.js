@@ -157,7 +157,7 @@ function parseWorkbook(buf) {
   const wb = XLSX.read(buf, { type: 'array' }); const found = [];
   for (const name of wb.SheetNames) {
     const ws = wb.Sheets[name]; if (!ws['!ref']) continue; const n = name.toLowerCase();
-    if (n.includes('движение')) { const p = importMovement(ws); if (p) found.push({ key: name, title: name, desc: 'позиции: вклады, краудлендинг, крипта… с историей сумм, условиями и датами', count: p.length, positions: p, def: true }); }
+    if (n.includes('движение')) { const p = importMovement(ws); if (p) found.push({ key: name, title: name, desc: 'места: вклады, краудлендинг, крипта… с историей сумм, условиями и датами', count: p.length, positions: p, def: true }); }
     else if (n.includes('состояние')) { const p = importState(ws); if (p) found.push({ key: name, title: name, desc: 'остатки по местам (карты, счета, биржи). Это те же деньги в другой разбивке — выбирай ОДИН из двух листов', count: p.length, positions: p, def: false }); }
     else if (n.includes('крипт') && n.includes('клал')) { const c = importCrypto(ws); if (c) found.push({ key: name, title: name, desc: 'вложения в крипту → раздел «Анализ»: что было бы в банке', count: c.rows.length, an: { crypto: c }, def: true }); }
     else if (n.includes('отправлял')) { const h = importHome(ws); if (h) found.push({ key: name, title: name, desc: 'переводы в Казахстан → «Анализ → Переводы в КЗ»', count: h.rows.length, an: { home: h }, def: true }); }
@@ -184,7 +184,7 @@ function parseWorkbook(buf) {
         const T = todayISO(), live = p.history.length && p.history[p.history.length - 1].amt > 0;
         if (live && p.close && p.close < T && p.open && p.open < p.close) { const term = dnum(p.close) - dnum(p.open); let c = p.close; while (c < T) c = addDays(c, term); p.close = c; p.prolong = true; p.comment = (p.comment ? p.comment + '\n' : '') + 'Срок из таблицы прошёл, а деньги на месте — считаю, что вклад продлён на тот же срок. Поправь, если не так.'; }
       }
-      mv.def = true; { const lastMv = mv.positions.flatMap(q => q.history.map(h => h.d)).sort().pop() || ''; mv.flows = flowsFrom(mv.positions).map(f => (f.src = 'xls', f)).concat(flowsFrom(st.positions).filter(f => f.d > lastMv).map(f => (f.src = 'calc', f))); } mv.positions = null; mv.count = mv.flows.length; mv.desc = 'журнал переводов → вкладка «Движение»; условия и даты уже подтянуты к позициям «состояния» (' + hit + ' совпало). Суммы в позиции не попадают — задвоения нет';
+      mv.def = true; { const lastMv = mv.positions.flatMap(q => q.history.map(h => h.d)).sort().pop() || ''; mv.flows = flowsFrom(mv.positions).map(f => (f.src = 'xls', f)).concat(flowsFrom(st.positions).filter(f => f.d > lastMv).map(f => (f.src = 'calc', f))); } mv.positions = null; mv.count = mv.flows.length; mv.desc = 'журнал переводов → вкладка «Движение»; условия и даты уже подтянуты к местам «состояния» (' + hit + ' совпало). Суммы в места не попадают — задвоения нет';
     }
     const app = st.positions.filter(p => !p.archived).reduce((s, p) => s + p.history[p.history.length - 1].amt * (p.cur === 'KZT' ? rt.KZT : p.cur === 'USD' ? rt.USD : 1), 0);
     st.meta = meta; st.desc = `сколько где лежит на ${meta.date ? fmtDate(meta.date) : 'последнюю дату'}. В приложении: ${Math.round(app).toLocaleString('ru-RU')} ₽` + (meta.sheetTotal ? `, в твоей таблице «общий итог»: ${Math.round(meta.sheetTotal).toLocaleString('ru-RU')} ₽` : '');

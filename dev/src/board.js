@@ -27,7 +27,7 @@ function boardModel() {
 const bSum = (ps, d) => ps.reduce((s, p) => s + lastAmt(p, d), 0);
 
 function viewBoard() {
-  if (!S.data.positions.length) return '<div class="card empty">Пока пусто — импортируй Excel или добавь позиции.</div>';
+  if (!S.data.positions.length) return '<div class="card empty">Пока пусто — импортируй Excel или добавь места.</div>';
   const M = boardModel(), { ds, all, grp, curs } = M, mode = S.bmode || 'sum', heat = !!S.bheat, fold = S.bfold || {}, per = S.bper === undefined ? 12 : S.bper;
   const tc = {}, tot = d => tc[d] ?? (tc[d] = curs.reduce((s, x) => s + bSum(x.ps, d) * rateOf(x.c, d), 0));
   const prevOf = d => all[all.indexOf(d) + 1];
@@ -81,7 +81,7 @@ function boardCell(id, d) {
   const p = S.data.positions.find(x => x.id === id); if (!p) return; const h = p.history.find(x => x.d === d), est = estAt(p, d);
   modal(`<div class="row" style="margin-bottom:8px"><h3 class="grow">${esc(p.where)} · ${fmtDate(d)}</h3><button class="ic" data-x="c">${ic('x')}</button></div>
   <label class="f">Сумма, ${SYM[p.cur]}<input class="inp" id="bcv" inputmode="decimal" value="${h ? Math.round(h.amt * 100) / 100 : ''}" placeholder="${Math.round(lastAmt(p, d))}"></label>
-  <div class="sm mut" style="margin:8px 0">${p.rate && p.cap ? `По условиям (${capName(p.cap).toLowerCase()}, ${p.rate}%) на эту дату ≈ ${fmt(est, p.cur)}` : 'Для расчёта укажи в позиции ставку и способ начисления'}</div>
+  <div class="sm mut" style="margin:8px 0">${p.rate && p.cap ? `По условиям (${capName(p.cap).toLowerCase()}, ${p.rate}%) на эту дату ≈ ${fmt(est, p.cur)}` : 'Для расчёта укажи в месте ставку и способ начисления'}</div>
   <div class="row wrap"><button class="btn pri grow" data-x="ok">Сохранить</button>${h ? '<button class="btn" data-x="del">Убрать запись</button>' : ''}</div>`, ov => {
     $('#bcv', ov).focus();
     ov.addEventListener('click', async e => { const b = e.target.closest('[data-x]'); if (!b) return; const x = b.dataset.x; if (x === 'c') return closeModal('ov');

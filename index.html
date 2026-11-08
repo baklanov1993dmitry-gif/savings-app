@@ -314,6 +314,12 @@ kbd{border:1px solid var(--line);border-radius:6px;padding:0 6px;font:11px ui-mo
 .nth{gap:8px;flex-wrap:wrap;align-items:center}.ntp{font-size:12px;max-width:150px;background:none;border:1px dashed var(--line,rgba(127,127,127,.4));border-radius:6px;color:var(--mut);padding:1px 4px}
 .item.nt.pin{border-color:var(--warn)}.ic.on{color:var(--warn)}
 
+.pbox{border:1px solid var(--line,rgba(127,127,127,.3));border-radius:12px;padding:10px 12px;margin-bottom:10px}
+.pt{font-size:12px;color:var(--mut);margin-bottom:6px}
+.pkv{display:flex;justify-content:space-between;gap:10px;padding:3px 0;font-size:14px}.pkv span:first-child{color:var(--mut)}
+.pkv .pl{color:#2fbf8a}.pkv .mi{color:#e0645c}
+.pspark{height:54px;display:flex;align-items:flex-end;gap:3px}.pspark i{flex:1;background:var(--acc);opacity:.6;border-radius:3px 3px 0 0;min-width:3px}
+
 </style>
 </head>
 <body>
@@ -587,7 +593,7 @@ function parseWorkbook(buf) {
   const wb = XLSX.read(buf, { type: 'array' }); const found = [];
   for (const name of wb.SheetNames) {
     const ws = wb.Sheets[name]; if (!ws['!ref']) continue; const n = name.toLowerCase();
-    if (n.includes('движение')) { const p = importMovement(ws); if (p) found.push({ key: name, title: name, desc: 'позиции: вклады, краудлендинг, крипта… с историей сумм, условиями и датами', count: p.length, positions: p, def: true }); }
+    if (n.includes('движение')) { const p = importMovement(ws); if (p) found.push({ key: name, title: name, desc: 'места: вклады, краудлендинг, крипта… с историей сумм, условиями и датами', count: p.length, positions: p, def: true }); }
     else if (n.includes('состояние')) { const p = importState(ws); if (p) found.push({ key: name, title: name, desc: 'остатки по местам (карты, счета, биржи). Это те же деньги в другой разбивке — выбирай ОДИН из двух листов', count: p.length, positions: p, def: false }); }
     else if (n.includes('крипт') && n.includes('клал')) { const c = importCrypto(ws); if (c) found.push({ key: name, title: name, desc: 'вложения в крипту → раздел «Анализ»: что было бы в банке', count: c.rows.length, an: { crypto: c }, def: true }); }
     else if (n.includes('отправлял')) { const h = importHome(ws); if (h) found.push({ key: name, title: name, desc: 'переводы в Казахстан → «Анализ → Переводы в КЗ»', count: h.rows.length, an: { home: h }, def: true }); }
@@ -614,7 +620,7 @@ function parseWorkbook(buf) {
         const T = todayISO(), live = p.history.length && p.history[p.history.length - 1].amt > 0;
         if (live && p.close && p.close < T && p.open && p.open < p.close) { const term = dnum(p.close) - dnum(p.open); let c = p.close; while (c < T) c = addDays(c, term); p.close = c; p.prolong = true; p.comment = (p.comment ? p.comment + '\n' : '') + 'Срок из таблицы прошёл, а деньги на месте — считаю, что вклад продлён на тот же срок. Поправь, если не так.'; }
       }
-      mv.def = true; { const lastMv = mv.positions.flatMap(q => q.history.map(h => h.d)).sort().pop() || ''; mv.flows = flowsFrom(mv.positions).map(f => (f.src = 'xls', f)).concat(flowsFrom(st.positions).filter(f => f.d > lastMv).map(f => (f.src = 'calc', f))); } mv.positions = null; mv.count = mv.flows.length; mv.desc = 'журнал переводов → вкладка «Движение»; условия и даты уже подтянуты к позициям «состояния» (' + hit + ' совпало). Суммы в позиции не попадают — задвоения нет';
+      mv.def = true; { const lastMv = mv.positions.flatMap(q => q.history.map(h => h.d)).sort().pop() || ''; mv.flows = flowsFrom(mv.positions).map(f => (f.src = 'xls', f)).concat(flowsFrom(st.positions).filter(f => f.d > lastMv).map(f => (f.src = 'calc', f))); } mv.positions = null; mv.count = mv.flows.length; mv.desc = 'журнал переводов → вкладка «Движение»; условия и даты уже подтянуты к местам «состояния» (' + hit + ' совпало). Суммы в места не попадают — задвоения нет';
     }
     const app = st.positions.filter(p => !p.archived).reduce((s, p) => s + p.history[p.history.length - 1].amt * (p.cur === 'KZT' ? rt.KZT : p.cur === 'USD' ? rt.USD : 1), 0);
     st.meta = meta; st.desc = `сколько где лежит на ${meta.date ? fmtDate(meta.date) : 'последнюю дату'}. В приложении: ${Math.round(app).toLocaleString('ru-RU')} ₽` + (meta.sheetTotal ? `, в твоей таблице «общий итог»: ${Math.round(meta.sheetTotal).toLocaleString('ru-RU')} ₽` : '');
@@ -837,7 +843,7 @@ function openPalette() {
   if (!S.data) return;
   const items = () => [
     ...TABS.map(([k, t, i]) => ({ l: 'Перейти: ' + t, h: 'раздел', i, run: () => { S.tab = k; S.q = ''; S.filter = 'Все'; S.fresh = true; render(); scrollTo(0, 0); } })),
-    { l: 'Добавить позицию', h: 'действие', i: 'plus', run: () => openPos(null) },
+    { l: 'Добавить место', h: 'действие', i: 'plus', run: () => openPos(null) },
     { l: S.data.settings.hide ? 'Показать суммы' : 'Скрыть суммы', h: 'действие', i: 'eye', run: () => { S.data.settings.hide = !S.data.settings.hide; persist(); render(); } },
     { l: 'Заблокировать', h: 'действие', i: 'lock', run: lock },
     { l: 'Цель накопления', h: 'действие', i: 'gear', run: openGoal },
@@ -846,7 +852,7 @@ function openPalette() {
     ...S.data.positions.filter(p => !p.archived).map(p => ({ l: p.where, h: `${esc(p.type)} · <span class="money">${fmt(lastAmt(p), p.cur)}</span>`, i: 'list', hh: 1, run: () => openPos(p.id) })),
   ];
   let sel = 0, list = [];
-  modal(`<input class="inp" id="pq" placeholder="Позиция или команда…" autocomplete="off"><div id="pl" style="margin-top:8px"></div><div class="sm mut" style="padding:8px 4px 0"><kbd>↑↓</kbd> выбрать · <kbd>Enter</kbd> открыть · <kbd>Esc</kbd> закрыть</div>`, ov => {
+  modal(`<input class="inp" id="pq" placeholder="Место или команда…" autocomplete="off"><div id="pl" style="margin-top:8px"></div><div class="sm mut" style="padding:8px 4px 0"><kbd>↑↓</kbd> выбрать · <kbd>Enter</kbd> открыть · <kbd>Esc</kbd> закрыть</div>`, ov => {
     ov.classList.add('top'); const q = $('#pq', ov), pl = $('#pl', ov);
     const draw = () => {
       const w = q.value.toLowerCase().split(/\s+/).filter(Boolean); const all = items();
@@ -1145,14 +1151,14 @@ function anCrypto() {
   return `<div class="card col" style="margin-bottom:14px"><h3>А если бы деньги лежали в банке</h3>
   <div class="sm mut">Каждое вложение в крипту считаем так, будто его положили в банк под ставку на тот день и оставили до выбранной даты (простые проценты).</div>
   <div class="grid g2" style="gap:10px"><label class="f">Считать до даты<input class="inp" type="date" data-an="c.end" value="${c.end}"></label><label class="f">Ставка по умолчанию, % годовых<input class="inp" inputmode="decimal" data-an="c.rate" value="${esc(c.rate)}" placeholder="например 18"></label></div>
-  <div class="kpis"><div class="kpi"><div class="sm mut">Вложено в крипту</div><b class="money">${fmt(k.inv, 'RUB')}</b></div><div class="kpi"><div class="sm mut">Было бы в банке</div><b class="money">${fmt(k.bank, 'RUB')}</b></div><div class="kpi"><div class="sm mut">Сейчас в крипте (по позициям)</div><b class="money">${fmt(k.now, 'RUB')}</b></div></div>
-  ${k.rows.length && !k.now ? `<div class="sm mut">Банк дал бы <span class="money">+${fmt(k.bank - k.inv, 'RUB')}</span> процентов. Чтобы сравнить с крипто-счётом, добавь позицию типа «Крипта» с текущей суммой.</div>` : ''}${k.rows.length && k.now ? `<div class="item" style="cursor:default"><div class="grow"><b>${th ? 'Крипта впереди банка' : 'Банк был бы выгоднее'}</b><div class="sm mut">Разница: <span class="money" style="color:var(--${th ? 'acc' : 'bad, #e5484d'})">${th ? '+' : '−'}${fmt(Math.abs(diff), 'RUB')}</span> · банк дал бы <span class="money">+${fmt(k.bank - k.inv, 'RUB')}</span> процентов</div></div></div>` : ''}</div>
+  <div class="kpis"><div class="kpi"><div class="sm mut">Вложено в крипту</div><b class="money">${fmt(k.inv, 'RUB')}</b></div><div class="kpi"><div class="sm mut">Было бы в банке</div><b class="money">${fmt(k.bank, 'RUB')}</b></div><div class="kpi"><div class="sm mut">Сейчас в крипте (по местам)</div><b class="money">${fmt(k.now, 'RUB')}</b></div></div>
+  ${k.rows.length && !k.now ? `<div class="sm mut">Банк дал бы <span class="money">+${fmt(k.bank - k.inv, 'RUB')}</span> процентов. Чтобы сравнить с крипто-счётом, добавь место типа «Крипта» с текущей суммой.</div>` : ''}${k.rows.length && k.now ? `<div class="item" style="cursor:default"><div class="grow"><b>${th ? 'Крипта впереди банка' : 'Банк был бы выгоднее'}</b><div class="sm mut">Разница: <span class="money" style="color:var(--${th ? 'acc' : 'bad, #e5484d'})">${th ? '+' : '−'}${fmt(Math.abs(diff), 'RUB')}</span> · банк дал бы <span class="money">+${fmt(k.bank - k.inv, 'RUB')}</span> процентов</div></div></div>` : ''}</div>
   <div class="card col"><div class="row"><h3 class="grow">Вложения</h3><button class="btn sm" data-a="crow">${ic('plus')}Добавить</button></div>
   ${k.rows.length ? `<div class="tw"><table class="tb"><tr><th>Дата</th><th>Сумма, ₽</th><th>Ставка %</th><th>Дней</th><th>Итого</th><th></th></tr>${k.rows.map(r => `<tr data-rid="${r.id}"><td><input class="inp" type="date" data-an="c.row.d" value="${r.d}"></td><td>${anIn('c.row.amt', r.amt)}</td><td>${anIn('c.row.rate', r.rate, String(c.rate || '—'))}</td><td class="mut">${r.days}</td><td class="money">${fmt(r.v, 'RUB')}</td><td><button class="ic" data-a="cdel" data-id="${r.id}">${ic('x')}</button></td></tr>`).join('')}</table></div>` : '<div class="empty">Добавь вложения или импортируй лист «если бы не клал в крипту»</div>'}</div>`;
 }
 function anYears() {
   const Y = [...A().years].sort((a, b) => b.y - a.y);
-  return `<div class="row" style="margin-bottom:12px"><div class="grow sm mut">Факт считается из истории сумм в позициях (по курсам из настроек). Остальное вводишь сам.</div><button class="btn sm" data-a="yadd">${ic('plus')}Год</button></div>` +
+  return `<div class="row" style="margin-bottom:12px"><div class="grow sm mut">Факт считается из истории сумм в местах (по курсам из настроек). Остальное вводишь сам.</div><button class="btn sm" data-a="yadd">${ic('plus')}Год</button></div>` +
     (Y.length ? `<div class="grid g2">${Y.map(y => { const c = yearCalc(y); if (y.fact !== '' && y.fact != null) { c.s1 = +y.fact; c.d = c.s0 == null ? null : c.s1 - c.s0; } const n = k => y[k] === '' || y[k] == null ? '—' : fmt(+y[k], 'RUB');
       return `<div class="card col" data-a="yedit" data-id="${y.id}" style="cursor:pointer"><div class="row"><h3 class="grow">${y.y}</h3>${c.cur ? '<span class="tag">идёт</span>' : ''}</div>
       <div class="sm">Факт: ${c.s0 == null ? '<span class="mut">нет истории на 1 января</span>' : `<span class="money">${fmt(c.s0, 'RUB')}</span> → <span class="money">${fmt(c.s1, 'RUB')}</span> <b class="money" style="color:var(--${c.d >= 0 ? 'acc' : 'bad, #e5484d'})">${c.d >= 0 ? '+' : '−'}${fmt(Math.abs(c.d), 'RUB')}</b>`}</div>
@@ -1205,7 +1211,7 @@ function anTax() {
   const low = Math.max(0, Math.min(taxable, 2.4e6 - base)), high = taxable - low, tax = low * .13 + high * .15;
   const est = S.data.positions.filter(p => !p.archived && p.cur === 'RUB' && p.rate).reduce((s, p) => s + lastAmt(p) * Number(p.rate) / 100, 0);
   return `<div class="card col" style="margin-bottom:14px"><h3>Налог с процентов по вкладам (РФ)</h3><div class="sm mut">Не облагается доход до 1 млн × максимальная ключевая ставка года. Остаток — 13%, а та часть, что вместе с зарплатой выходит за 2,4 млн в год, — 15% (прогрессивная шкала). Это оценка, а не налоговая консультация: сверяйся с ФНС.</div>
-  <div class="grid g2" style="gap:10px"><label class="f">Зарплата в месяц до налога, ₽<input class="inp" inputmode="decimal" data-ap="tax.salary" data-t="num" value="${esc(t.salary)}"></label><label class="f">Проценты по вкладам за год, ₽<input class="inp" inputmode="decimal" data-ap="tax.dep" data-t="num" value="${esc(t.dep)}" placeholder="оценка по позициям: ${Math.round(est)}"></label><label class="f">Макс. ключевая ставка за год, %<input class="inp" inputmode="decimal" data-ap="tax.key" data-t="num" value="${esc(t.key)}"></label></div>
+  <div class="grid g2" style="gap:10px"><label class="f">Зарплата в месяц до налога, ₽<input class="inp" inputmode="decimal" data-ap="tax.salary" data-t="num" value="${esc(t.salary)}"></label><label class="f">Проценты по вкладам за год, ₽<input class="inp" inputmode="decimal" data-ap="tax.dep" data-t="num" value="${esc(t.dep)}" placeholder="оценка по местам: ${Math.round(est)}"></label><label class="f">Макс. ключевая ставка за год, %<input class="inp" inputmode="decimal" data-ap="tax.key" data-t="num" value="${esc(t.key)}"></label></div>
   <div class="kpis"><div class="kpi"><div class="sm mut">Необлагаемый порог</div><b class="money">${fmt(free, 'RUB')}</b></div><div class="kpi"><div class="sm mut">Облагается</div><b class="money">${fmt(taxable, 'RUB')}</b></div><div class="kpi"><div class="sm mut">Налог к уплате</div><b class="money">${fmt(tax, 'RUB')}</b></div></div>
   <div class="sm mut">Общий доход за год: <span class="money">${fmt(sal + dep, 'RUB')}</span>${sal + dep > 2.4e6 ? ' — выше 2,4 млн, часть процентов облагается по 15%.' : ' — ниже 2,4 млн, ставка 13%.'}</div></div>` + notesCard('tax', t.notes);
 }
@@ -1360,7 +1366,7 @@ function todoList() {
       L.push({ w: 100 - n, sev: 'r', e: '⏰', ic: 'cal', t: `<b>${esc(p.where)}</b> — ${n < 0 ? `срок вышел ${-n} дн. назад` : n === 0 ? 'забрать сегодня' : `забрать через ${n} дн. (${fmtDate(p.close)})`}${po ? `, к выплате ≈ ${fmt(po.total, p.cur)}` : ''}.${bo.length ? `<div class="sm mut">Куда переложить по твоей таблице: ${bo.map(x => esc(x.t)).join('; ')}</div>` : ''}`, a: p.id }); } }
     if (p.reopen) { const n = daysTo(p.reopen); if (n >= 0 && n <= 14) L.push({ w: 60, sev: 'g', e: '🔁', ic: 'cal', t: `<b>${esc(p.where)}</b> — с ${fmtDate(p.reopen)} снова можно открыть с приветственной ставкой.`, a: p.id }); }
     if (p.limit && a > p.limit) L.push({ w: 70, sev: 'a', e: '⚠️', ic: 'x', t: `<b>${esc(p.where)}</b> — сумма выше лимита ставки на ${fmt(a - p.limit, p.cur)}${p.rateOver !== '' && p.rateOver != null ? ` (на излишек всего ${p.rateOver}%)` : ''}.`, a: p.id });
-    if (!p.rate && !NOPCT_T.test(p.type) && p.cur !== 'USD') { const rub = a * rateOf(p.cur); if (rub >= 30000) { const bo = bestOffers(p.cur), best = bo[0] ? bo[0].v : keyR; L.push({ w: 50 + Math.min(40, rub / 1e5), sev: 'a', e: '💤', ic: 'x', t: `<b>${esc(p.where)}</b> — ${fmt(a, p.cur)} лежат без процентов${best ? `: под ${String(best).replace('.', ',')}% это ≈ +${fmt(a * best / 100 / 12, p.cur)} в месяц` : ''}. Если ставка есть — впиши её в позицию.`, a: p.id }); } }
+    if (!p.rate && !NOPCT_T.test(p.type) && p.cur !== 'USD') { const rub = a * rateOf(p.cur); if (rub >= 30000) { const bo = bestOffers(p.cur), best = bo[0] ? bo[0].v : keyR; L.push({ w: 50 + Math.min(40, rub / 1e5), sev: 'a', e: '💤', ic: 'x', t: `<b>${esc(p.where)}</b> — ${fmt(a, p.cur)} лежат без процентов${best ? `: под ${String(best).replace('.', ',')}% это ≈ +${fmt(a * best / 100 / 12, p.cur)} в месяц` : ''}. Если ставка есть — впиши её в место.`, a: p.id }); } }
     else if (p.rate && !p.cap && DEP_T.test(p.type)) L.push({ w: 20, sev: 'n', e: '⚙️', ic: 'gear', t: `<b>${esc(p.where)}</b> — укажи, как начисляются проценты (капитализация / в конце срока), тогда автоснимки будут точными.`, a: p.id });
   }
   const pd = FX.pending(); if (pd.length) L.push({ w: 95, sev: 'g', e: '✅', t: `<b>Автоснимок на ${fmtDate(pd[pd.length - 1])} готов</b><div class="sm mut">суммы посчитаны по условиям — сверь с банками, займёт минуту${pd.length > 1 ? ` (снимков: ${pd.length})` : ''}</div>`, snap: pd[pd.length - 1] });
@@ -1402,7 +1408,7 @@ function insightCards() {
   const why = w ? `<div class="card"><div class="row" style="margin-bottom:4px"><h3 class="grow">Почему изменилось</h3><span class="sm mut">${fmtDate(w.d1)} → ${fmtDate(w.d2)}</span></div>
     <div class="big" style="font-size:26px;margin:4px 0 8px;color:var(--${w.dl >= 0 ? 'acc' : 'bad'})">${w.dl >= 0 ? '+' : '−'}${fmt(Math.abs(w.dl), 'RUB')}</div>
     ${bar('Проценты по вкладам', w.pct, 'var(--acc)')}${bar('Курсы валют', w.fx, 'var(--c2)')}${bar('Пополнения, снятия, рынок', w.other, 'var(--c3)')}
-    ${w.dups.length ? `<div class="sm" style="margin:8px 0;padding:8px 10px;border-radius:10px;background:color-mix(in srgb,var(--bad) 14%,transparent);border:1px solid color-mix(in srgb,var(--bad) 40%,transparent)">⚠ Похоже, позиции задвоены: ${w.dups.slice(0, 5).map(esc).join(', ')}${w.dups.length > 5 ? ' и ещё ' + (w.dups.length - 5) : ''}. Так бывает после нескольких импортов — сделай «Настройки → Очистить все позиции» и импортируй файл один раз.</div>` : ''}
+    ${w.dups.length ? `<div class="sm" style="margin:8px 0;padding:8px 10px;border-radius:10px;background:color-mix(in srgb,var(--bad) 14%,transparent);border:1px solid color-mix(in srgb,var(--bad) 40%,transparent)">⚠ Похоже, места задвоены: ${w.dups.slice(0, 5).map(esc).join(', ')}${w.dups.length > 5 ? ' и ещё ' + (w.dups.length - 5) : ''}. Так бывает после нескольких импортов — сделай «Настройки → Очистить все места» и импортируй файл один раз.</div>` : ''}
     ${w.mv.length ? `<details style="margin-top:8px"${Math.abs(w.dl) > totals().rub * 0.3 ? ' open' : ''}><summary class="sm" style="cursor:pointer">Какие места дали изменение</summary>${w.mv.map(x => `<div class="row sm" style="gap:8px;margin-top:4px" data-a="editPos" data-id="${x.p.id}"><span class="grow" style="cursor:pointer">${esc(x.p.where)}${x.p.archived ? ' <span class="mut">(архив)</span>' : ''}</span><span class="mut">${fmt(x.a1, x.p.cur)} → ${fmt(x.a2, x.p.cur)}</span><b class="money" style="min-width:90px;text-align:right;color:var(--${x.v >= 0 ? 'acc' : 'bad'})">${x.v >= 0 ? '+' : '−'}${short(Math.abs(x.v))}</b></div>`).join('')}</details>` : ''}
     <div class="sm mut" style="margin-top:6px">Проценты — расчёт по условиям вкладов; курсы — как изменилась стоимость тенге и долларов в рублях; остальное — то, что ты доложил/снял, и колебания крипты и инвестиций.</div></div>` : '';
   const td = `<div class="card"><div class="row" style="margin-bottom:6px"><h3 class="grow">Что сделать</h3>${todo.length ? `<span class="tag">${todo.length}</span>` : ''}</div>${todo.length ? todo.slice(0, S.tdAll ? 50 : 5).map(x => `<div class="item" data-a="editPos" data-id="${x.a}" style="align-items:flex-start;gap:10px;cursor:pointer">${ic(x.ic)}<div class="grow sm">${x.t}</div></div>`).join('') + (todo.length > 5 && !S.tdAll ? `<button class="btn sm" data-a="tdall">Ещё ${todo.length - 5}</button>` : '') : '<div class="sm mut">Всё в порядке: ничего не закрывается в ближайшие 3 недели, деньги работают.</div>'}</div>`;
@@ -1429,7 +1435,7 @@ function conclusions() {
   const L = [], tot = totals(), T = tot.rub || 0;
   const yg = yearGrowth(), w = whyChanged(), rk = riskInfo(), tx = taxInfo(), todo = todoList();
   const vc = (sev, big, more, det) => L.push({ sev, big, more, det });
-  if (w && w.dups.length) vc('w', `Похоже, часть позиций записана дважды: ${w.dups.slice(0, 3).map(esc).join(', ')}`, 'Что проверить', `Одинаковые место и валюта встречаются больше одного раза, при этом суммы есть. Если это один счёт, итог завышен. Открой «Позиции» и убери лишнее.`);
+  if (w && w.dups.length) vc('w', `Похоже, часть мест записана дважды: ${w.dups.slice(0, 3).map(esc).join(', ')}`, 'Что проверить', `Одинаковые место и валюта встречаются больше одного раза, при этом суммы есть. Если это один счёт, итог завышен. Открой «Места» и убери лишнее.`);
   for (const x of todo.filter(z => z.sev === 'r').slice(0, 2)) vc('w', x.t, 'Что сделать', 'Срок вклада подходит или вышел. Сумма выплаты считается по условиям вклада в карточке места.');
   if (yg) {
     const pct = yg.base > 0 ? yg.dl / yg.base * 100 : null, up = yg.dl >= 0;
@@ -1438,14 +1444,14 @@ function conclusions() {
   }
   if (rk.top && rk.top.s > 30) vc('w', `${rk.top.s.toFixed(0)}% всех денег лежит в одном месте: ${esc(rk.top.w)}`, 'Почему важно', `Доля места в общей сумме в рублях. Если с этим банком что-то случится, под удар попадёт именно эта часть.${/кз_|kz/i.test(rk.top.w) ? '' : ' Страховка АСВ покрывает до 1,4 млн ₽ на банк.'}`);
   if (rk.cur[1][1] > 40 && T) vc('w', `${rk.cur[1][1].toFixed(0)}% денег в тенге: ослабление тенге на 5% съест около ${short(T * rk.cur[1][1] / 100 * 0.05)} ₽`, 'Как посчитано', `Доля тенге в капитале, умноженная на 5%. Это пример, а не прогноз.`);
-  if (rk.crypto > 5) vc('w', `Крипта — ${rk.crypto.toFixed(0)}% капитала`, 'Почему важно', 'Сумма позиций типа «крипта» относительно всего капитала в рублях. Цена крипты скачет сильнее, чем по вкладам.');
+  if (rk.crypto > 5) vc('w', `Крипта — ${rk.crypto.toFixed(0)}% капитала`, 'Почему важно', 'Сумма мест типа «крипта» относительно всего капитала в рублях. Цена крипты скачет сильнее, чем по вкладам.');
   if (tx.free && tx.inc > 0) { const tp = tx.inc / tx.free * 100; vc(tp >= 80 ? 'w' : 'g', tp >= 100 ? `Проценты по вкладам РФ за ${tx.y} выше необлагаемой суммы: будет налог` : `Налог с процентов за ${tx.y}: использовано ${tp.toFixed(0)}% необлагаемой суммы`, 'Как посчитано', `Оценка процентов по рублёвым вкладам за год: ${fmt(tx.inc, 'RUB')}. Необлагаемая сумма — 1 млн ₽ × ключевая ставка ${String(tx.key).replace('.', ',')}% = ${fmt(tx.free, 'RUB')}.`); }
   if (w && Math.abs(w.dl) > 0) vc('n', `С ${fmtDate(w.d1)} по ${fmtDate(w.d2)} капитал ${w.dl >= 0 ? 'вырос' : 'упал'} на ${short(Math.abs(w.dl))} ₽`, 'Из чего сложилось', `Проценты ${w.pct >= 0 ? '+' : '−'}${short(Math.abs(w.pct))} ₽, курсы ${w.fx >= 0 ? '+' : '−'}${short(Math.abs(w.fx))} ₽, остальное ${w.other >= 0 ? '+' : '−'}${short(Math.abs(w.other))} ₽ (пополнения, снятия, рынок).${w.mv.length ? ' Больше всего изменились: ' + w.mv.slice(0, 3).map(x => esc(x.p.where)).join(', ') + '.' : ''}`);
   return L;
 }
 function viewConclusions() {
   const L = conclusions();
-  const feed = L.length ? L.map(c => `<details class="vc vc-${c.sev}"><summary><div class="vbig">${c.big}</div><span class="vmore">${c.more} ›</span></summary><div class="vd sm">${c.det}</div></details>`).join('') : '<div class="card empty"><p>Выводов пока нет: нужно хотя бы два снимка сумм. Добавь позиции или импортируй Excel.</p></div>';
+  const feed = L.length ? L.map(c => `<details class="vc vc-${c.sev}"><summary><div class="vbig">${c.big}</div><span class="vmore">${c.more} ›</span></summary><div class="vd sm">${c.det}</div></details>`).join('') : '<div class="card empty"><p>Выводов пока нет: нужно хотя бы два снимка сумм. Добавь места или импортируй Excel.</p></div>';
   return `<p class="mut sm" style="margin:0 0 12px">Главное о твоих деньгах одной фразой. Нажми на карточку, чтобы увидеть, как посчитано.</p><div class="col" style="gap:10px">${feed}</div>
   <button class="fold" data-a="ancalc">${S.ancalc ? 'Скрыть расчёты из Excel' : 'Расчёты из Excel: «А если бы в банк», по годам, банки, налог ›'}</button>${S.ancalc ? viewAn() : ''}`;
 }
@@ -1481,7 +1487,7 @@ function boardModel() {
 const bSum = (ps, d) => ps.reduce((s, p) => s + lastAmt(p, d), 0);
 
 function viewBoard() {
-  if (!S.data.positions.length) return '<div class="card empty">Пока пусто — импортируй Excel или добавь позиции.</div>';
+  if (!S.data.positions.length) return '<div class="card empty">Пока пусто — импортируй Excel или добавь места.</div>';
   const M = boardModel(), { ds, all, grp, curs } = M, mode = S.bmode || 'sum', heat = !!S.bheat, fold = S.bfold || {}, per = S.bper === undefined ? 12 : S.bper;
   const tc = {}, tot = d => tc[d] ?? (tc[d] = curs.reduce((s, x) => s + bSum(x.ps, d) * rateOf(x.c, d), 0));
   const prevOf = d => all[all.indexOf(d) + 1];
@@ -1535,7 +1541,7 @@ function boardCell(id, d) {
   const p = S.data.positions.find(x => x.id === id); if (!p) return; const h = p.history.find(x => x.d === d), est = estAt(p, d);
   modal(`<div class="row" style="margin-bottom:8px"><h3 class="grow">${esc(p.where)} · ${fmtDate(d)}</h3><button class="ic" data-x="c">${ic('x')}</button></div>
   <label class="f">Сумма, ${SYM[p.cur]}<input class="inp" id="bcv" inputmode="decimal" value="${h ? Math.round(h.amt * 100) / 100 : ''}" placeholder="${Math.round(lastAmt(p, d))}"></label>
-  <div class="sm mut" style="margin:8px 0">${p.rate && p.cap ? `По условиям (${capName(p.cap).toLowerCase()}, ${p.rate}%) на эту дату ≈ ${fmt(est, p.cur)}` : 'Для расчёта укажи в позиции ставку и способ начисления'}</div>
+  <div class="sm mut" style="margin:8px 0">${p.rate && p.cap ? `По условиям (${capName(p.cap).toLowerCase()}, ${p.rate}%) на эту дату ≈ ${fmt(est, p.cur)}` : 'Для расчёта укажи в месте ставку и способ начисления'}</div>
   <div class="row wrap"><button class="btn pri grow" data-x="ok">Сохранить</button>${h ? '<button class="btn" data-x="del">Убрать запись</button>' : ''}</div>`, ov => {
     $('#bcv', ov).focus();
     ov.addEventListener('click', async e => { const b = e.target.closest('[data-x]'); if (!b) return; const x = b.dataset.x; if (x === 'c') return closeModal('ov');
@@ -1564,7 +1570,7 @@ function boardCols() {
 <script>
 /* ===== Движение средств: журнал переводов «откуда → куда» ===== */
 const FLN = { RUB: 1000, KZT: 5000, USD: 20 };
-/** собрать переводы из позиций листа «движение средств»: пометки в клетках + пропажа суммы в одном месте и появление в другом */
+/** собрать переводы из мест листа «движение средств»: пометки в клетках + пропажа суммы в одном месте и появление в другом */
 function flowsFrom(positions) {
   const all = positions.flatMap(p => p.history.map(h => h.d)).sort(), first = all[0], ev = [];
   for (const p of positions) {
@@ -1617,7 +1623,7 @@ function flList() {
     const t = flType(f), sg = t === 'in' ? '+' : t === 'out' ? '−' : '', sr = FLSRC[f.src || 'xls'];
     h += `<div class="item fl" data-a="fedit" data-id="${f.id}" style="--cc:var(--cc-${f.cur})"><div class="fld">${fmtDate(f.d)}</div>
     <div class="grow flw"><span class="fltp ${t}">${FLT[t]}</span><span>${t === 'move' ? esc(f.from) + '</span><span class="fla">→</span><span>' + esc(f.to) : esc(f.to || f.from)}</span><span class="flsrc" title="${esc(sr[1])}">${sr[0]}</span>${f.note ? `<div class="sm mut flnote">${esc(f.note)}</div>` : ''}</div>
-    <div class="fls money ${t}">${sg}${fmt(f.amt, f.cur)}</div>${f.applied ? '' : `<button class="btn sm" data-a="fapply" data-id="${f.id}" title="Изменить суммы в позициях">Применить</button>`}</div>`;
+    <div class="fls money ${t}">${sg}${fmt(f.amt, f.cur)}</div>${f.applied ? '' : `<button class="btn sm" data-a="fapply" data-id="${f.id}" title="Изменить суммы в местах">Применить</button>`}</div>`;
   }
   return h;
 }
@@ -1643,7 +1649,7 @@ function flEdit(f) {
   <datalist id="flpl">${pl.map(x => `<option value="${esc(x)}">`).join('')}</datalist>
   <div class="row"><label class="f grow">Сумма<input class="inp" id="fa" inputmode="decimal" value="${d.amt}"></label><label class="f">Валюта<select class="inp" id="fc">${['RUB', 'KZT', 'USD'].map(c => `<option value="${c}" ${d.cur === c ? 'selected' : ''}>${SYM[c]} ${c}</option>`).join('')}</select></label></div>
   <label class="f">Комментарий<input class="inp" id="fn" value="${esc(d.note || '')}"></label>
-  ${d.applied ? '' : '<label class="row"><input type="checkbox" id="fap" checked> Применить к позициям (изменить суммы «откуда» и «куда» на эту дату)</label>'}
+  ${d.applied ? '' : '<label class="row"><input type="checkbox" id="fap" checked> Применить к местам (изменить суммы «откуда» и «куда» на эту дату)</label>'}
   <div class="row" style="justify-content:flex-end;gap:8px;margin-top:6px">${isNew ? '' : '<button class="btn bad" data-x="del" style="margin-right:auto">Удалить</button>'}<button class="btn" data-x="c">Отмена</button><button class="btn pri" data-x="ok">Сохранить</button></div></div>`, ov => {
     ov.addEventListener('click', async e => {
       const b = e.target.closest('[data-x]'); if (!b) return; if (b.dataset.x === 'c') return closeModal();
@@ -1657,7 +1663,7 @@ function flEdit(f) {
     });
   });
 }
-/** поменять суммы в позициях «откуда» (минус) и «куда» (плюс) на дату перевода */
+/** поменять суммы в местах «откуда» (минус) и «куда» (плюс) на дату перевода */
 function flApply(f) {
   const done = [], miss = [];
   const go = (name, sign) => {
@@ -1666,7 +1672,7 @@ function flApply(f) {
     const a = Math.max(0, lastAmt(p, f.d) + sign * f.amt); p.history = p.history.filter(h => h.d !== f.d); p.history.push({ d: f.d, amt: a }); p.history.sort((x, y) => x.d < y.d ? -1 : 1); done.push(name);
   };
   go(f.from, -1); go(f.to, 1); f.applied = true;
-  toast(done.length ? 'Суммы обновлены: ' + done.join(', ') + (miss.length ? '. Не нашёл: ' + miss.join(', ') : '') : 'Не нашёл позиции в этой валюте — суммы не менялись', 4200);
+  toast(done.length ? 'Суммы обновлены: ' + done.join(', ') + (miss.length ? '. Не нашёл: ' + miss.join(', ') : '') : 'Не нашёл места в этой валюте — суммы не менялись', 4200);
 }
 
 </script>
@@ -1939,7 +1945,7 @@ function render() {
     ${TABS.map(([k, t, i]) => `<button class="nv ${S.tab === k ? 'on' : ''}" data-a="tab" data-id="${k}">${ic(i)}${t}${k === 'dates' && urgent ? `<span class="tag bad" style="margin-left:auto">${urgent}</span>` : ''}</button>`).join('')}
     <div class="grow"></div><button class="nv" data-a="palette">${ic('search')}Поиск <kbd style="margin-left:auto">Ctrl K</kbd></button></aside>
     <main class="main ${full ? 'fresh' : ''} ${S.tab === 'money' && S.mm === 'table' ? 'wide' : ''}">${S.memOnly ? '<div class="banner">Хранилище браузера недоступно — данные живут только до закрытия вкладки. Сделай экспорт копии в Настройках.</div>' : ''}
-    <div class="top"><h1>${TITLES[S.tab]}</h1><span class="tag" title="версия приложения">v4.14 · 08.11</span>
+    <div class="top"><h1>${TITLES[S.tab]}</h1><span class="tag" title="версия приложения">v4.15 · 08.11</span>
       <button class="ic" data-a="palette" title="Поиск и команды (Ctrl+K)">${ic('search')}</button>
       <button class="ic" data-a="hide" title="Скрыть суммы">${ic(d.settings.hide ? 'eyeoff' : 'eye')}</button>
       <button class="ic" data-a="lock" title="Заблокировать">${ic('lock')}</button></div>
@@ -1952,7 +1958,7 @@ function render() {
 /* ===== Обзор ===== */
 function viewHome() {
   const d = S.data;
-  if (!d.positions.length) return `<div class="card empty"><h2>Пока пусто</h2><p>Добавь первую позицию, импортируй свой Excel или загрузи демо-данные.</p><div class="row wrap" style="justify-content:center"><button class="btn pri" data-a="newPos">${ic('plus')}Добавить позицию</button><button class="btn" data-a="xlsx">${ic('xls')}Импорт из Excel</button><button class="btn" data-a="demo">Демо-данные</button></div></div>`;
+  if (!d.positions.length) return `<div class="card empty"><h2>Пока пусто</h2><p>Добавь первое место, импортируй свой Excel или загрузи демо-данные.</p><div class="row wrap" style="justify-content:center"><button class="btn pri" data-a="newPos">${ic('plus')}Добавить место</button><button class="btn" data-a="xlsx">${ic('xls')}Импорт из Excel</button><button class="btn" data-a="demo">Демо-данные</button></div></div>`;
   const T = todayISO(), t = totals(), now = t.rub, prev = totalAt(addDays(T, -30)), dl = prev > 0 ? (now - prev) / prev * 100 : null;
   const ds = [...new Set(d.positions.flatMap(p => p.history.map(h => h.d)))].sort(), dLast = ds[ds.length - 1] || T, dPrev = ds[ds.length - 2];
   const dS = dPrev ? now - totalAt(dPrev) : null, yAgo = totalAt(addDays(dLast, -365)), dY = yAgo > 0 ? now - yAgo : null;
@@ -1980,10 +1986,10 @@ function viewHome() {
   <div class="grid g2" style="margin-top:14px">${goalCard()}<div class="card"><h3 style="margin-bottom:8px">Прирост по годам</h3>${yearBars()}</div></div>
   <div class="card" style="margin-top:14px"><div class="row" style="margin-bottom:10px"><h3 class="grow">Календарь закрытий</h3><span class="mut sm">полгода вперёд</span></div>${heatmap()}</div>
   <div class="sect"><h2>Ближайшие даты</h2><button class="btn sm" data-a="tab" data-id="dates">Все</button></div>
-  ${ev.length ? ev.map(evItem).join('') : '<div class="card empty">Дат пока нет — укажи «забрать до» в карточке позиции</div>'}`;
+  ${ev.length ? ev.map(evItem).join('') : '<div class="card empty">Дат пока нет — укажи «забрать до» в карточке места</div>'}`;
 }
 
-/* ===== Позиции ===== */
+/* ===== Места ===== */
 function viewMoney() {
   const by = {}; let T = 0;
   S.data.positions.filter(p => !p.archived).forEach(p => { const v = rubOf(p); by[p.cur] = (by[p.cur] || 0) + v; T += v; });
@@ -2023,10 +2029,35 @@ function posCalcText(f, hist) {
   const inc = g.bal - a + g.acc + g.paid, mi = m.bal - a + m.acc + m.paid;
   return `За 30 дней ≈ <b class="money">+${fmt(mi, cur)}</b> · ${q.close && q.close > T ? 'к ' + fmtDate(q.close) : 'за год'} ≈ <b class="money">+${fmt(inc, cur)}</b>` + (g.paid ? ` (из них на другой счёт ${fmt(g.paid, cur)})` : '') + ` · на счёте будет ≈ <b class="money">${fmt(g.bal + g.acc, cur)}</b>` + `<div class="mut" style="margin-top:2px">Эффективная доходность ≈ ${(inc / a * 365 / Math.max(1, dnum(to) - dnum(T)) * 100).toFixed(2).replace('.', ',')}% годовых</div>`;
 }
+function openPlace(id) {
+  const p = S.data.positions.find(z => z.id === id); if (!p) return;
+  const a = lastAmt(p), po = payoutOf(p), n = p.close ? daysTo(p.close) : null, cp = typeof CAPS !== 'undefined' && CAPS.find(c => c[0] === (p.cap || ''));
+  const hs = [...p.history].sort((x, y) => x.d < y.d ? -1 : 1).slice(-24), mx = Math.max(...hs.map(h => h.amt), 1);
+  const spark = hs.length > 1 ? `<div class="pspark">${hs.map(h => `<i title="${fmtDate(h.d)}: ${esc(fmt(h.amt, p.cur))}" style="height:${Math.max(6, h.amt / mx * 100)}%"></i>`).join('')}</div><div class="sm mut" style="display:flex;justify-content:space-between"><span>${fmtDate(hs[0].d)}</span><span>${fmtDate(hs[hs.length - 1].d)}</span></div>` : '<div class="sm mut">Пока одна точка. Добавь ещё суммы в «Изменить», и тут появится динамика.</div>';
+  const kv = (k, v) => v ? `<div class="pkv"><span>${k}</span><span>${v}</span></div>` : '';
+  const cond = [kv('Ставка', p.rate !== '' && p.rate != null ? p.rate + '%' : ''), kv('Проценты', cp && p.cap ? esc(cp[1]) : ''), kv('Открыто', p.open ? fmtDate(p.open) : ''), kv('Забрать до', p.close ? fmtDate(p.close) + (n != null ? ` (через ${n} дн.)` : '') : ''), kv('К выплате', po ? '≈ ' + money(po.total, p.cur) : ''), kv('Снова можно с', p.reopen ? fmtDate(p.reopen) : '')].join('') + (p.cond ? `<div class="sm mut" style="white-space:pre-wrap;margin-top:6px">${esc(p.cond)}</div>` : '');
+  const fl = (S.data.flows || []).filter(f => f.from === p.where || f.to === p.where).sort((x, y) => x.d < y.d ? 1 : -1);
+  const flh = fl.length ? fl.slice(0, 6).map(f => { const t = flType(f), out = f.from === p.where; return `<div class="pkv"><span>${fmtDate(f.d)} · ${FLT[t]}${t === 'move' ? (out ? ' → ' + esc(f.to) : ' из ' + esc(f.from)) : ''}</span><span class="${out ? 'mi' : 'pl'}">${out ? '−' : '+'}${esc(fmt(f.amt, f.cur))}</span></div>`; }).join('') + (fl.length > 6 ? `<div class="sm mut">и ещё ${fl.length - 6}. Все в «Движении».</div>` : '') : '<div class="sm mut">Движений по этому месту нет.</div>';
+  const nts = S.data.notes.filter(z => z.where === p.where).sort((x, y) => x.d < y.d ? 1 : -1);
+  const nth = nts.length ? nts.map(z => `<div class="pkv" style="display:block"><span class="ntk nk-${z.kind || 'x'}" style="cursor:default">${NK[z.kind || '']}</span> <span class="sm mut">${fmtDate(z.d)}</span><div style="white-space:pre-wrap;margin-top:2px">${esc(z.text)}</div></div>`).join('') : '<div class="sm mut">Заметок нет.</div>';
+  const html = `<div class="row" style="margin-bottom:8px"><div class="dot" style="background:${typeColor(p.type)}">${esc((p.where || '?')[0].toUpperCase())}</div><div class="grow"><h3 style="margin:0">${esc(p.where)}</h3><div class="sm mut">${esc(p.type)}${p.archived ? ' · в архиве' : ''}${p.excl ? ' · не в итогах' : ''}</div></div><button class="ic" data-x="close">${ic('x')}</button></div>
+  <div class="card" style="margin-bottom:10px"><div class="big money" style="font-size:26px;font-weight:700">${money(a, p.cur)}</div>${p.cur !== 'RUB' ? `<div class="sm mut">≈ ${esc(fmt(rubOf(p), 'RUB'))}</div>` : ''}</div>
+  <div class="pbox"><div class="pt">Динамика суммы</div>${spark}</div>
+  <div class="pbox"><div class="pt">Условия</div>${cond || '<div class="sm mut">Условия не заполнены.</div>'}</div>
+  <div class="pbox"><div class="pt">Движение (${fl.length})</div>${flh}</div>
+  <div class="pbox"><div class="pt">Заметки (${nts.length})</div>${nth}<div class="row" style="margin-top:8px"><input class="inp grow" id="pnt" placeholder="Новая заметка к этому месту"><button class="btn sm" data-x="pnadd">${ic('plus')}</button></div></div>
+  <div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn pri" data-x="pedit">Изменить</button></div>`;
+  modal(html, ov => ov.addEventListener('click', async e => {
+    const b = e.target.closest('[data-x]'); if (!b) return; const x = b.dataset.x;
+    if (x === 'close') closeModal();
+    else if (x === 'pedit') { closeModal(); openPos(p.id); }
+    else if (x === 'pnadd') { const t = $('#pnt', ov).value.trim(); if (!t) return toast('Напиши текст заметки'); S.data.notes.push({ id: uid(), d: todayISO(), text: t, kind: '', where: p.where }); await persist(); closeModal(); openPlace(p.id); }
+  }));
+}
 function openPos(id) {
   const isNew = !id; const p = isNew ? { id: uid(), type: 'Банковский вклад', where: '', cur: 'RUB', rate: '', cap: 'end', rateOver: '', promoTo: '', rateAfter: '', prolong: false, cond: '', open: '', close: '', reopen: '', comment: '', limit: '', history: [], archived: false } : S.data.positions.find(x => x.id === id);
   const draft = { ...p, history: p.history.map(h => ({ ...h })) }, po = isNew ? null : payoutOf(p);
-  const html = `<div class="row" style="margin-bottom:12px"><h3 class="grow">${isNew ? 'Новая позиция' : 'Позиция'}</h3><button class="ic" data-x="close">${ic('x')}</button></div>
+  const html = `<div class="row" style="margin-bottom:12px"><h3 class="grow">${isNew ? 'Новое место' : 'Место'}</h3><button class="ic" data-x="close">${ic('x')}</button></div>
   <form id="pf" class="col" autocomplete="off">
     <div class="grid g2" style="gap:10px"><label class="f">Тип<input class="inp" name="type" list="tl" value="${esc(draft.type)}"><datalist id="tl">${TYPES.map(t => `<option value="${esc(t)}">`).join('')}</datalist></label>
     <label class="f">Где лежит<input class="inp" name="where" value="${esc(draft.where)}" required></label></div>
@@ -2064,8 +2095,8 @@ function openPos(id) {
     });
     ov.addEventListener('holddone', async e => {
       const act = e.detail.act, q = S.data.positions.find(z => z.id === p.id); if (!q) return; const snap = JSON.stringify(q);
-      if (act === 'arch') { q.history = q.history.filter(h => h.d !== todayISO()); q.history.push({ d: todayISO(), amt: 0 }); q.archived = true; await persist(); closeModal(); render(); undoToast('Позиция в архиве', async () => { const i = S.data.positions.findIndex(z => z.id === p.id); S.data.positions[i] = JSON.parse(snap); await persist(); render(); }); }
-      else if (act === 'del') { S.data.positions = S.data.positions.filter(z => z.id !== p.id); await persist(); closeModal(); render(); undoToast('Позиция удалена', async () => { S.data.positions.push(JSON.parse(snap)); await persist(); render(); }); }
+      if (act === 'arch') { q.history = q.history.filter(h => h.d !== todayISO()); q.history.push({ d: todayISO(), amt: 0 }); q.archived = true; await persist(); closeModal(); render(); undoToast('Место в архиве', async () => { const i = S.data.positions.findIndex(z => z.id === p.id); S.data.positions[i] = JSON.parse(snap); await persist(); render(); }); }
+      else if (act === 'del') { S.data.positions = S.data.positions.filter(z => z.id !== p.id); await persist(); closeModal(); render(); undoToast('Место удалено', async () => { S.data.positions.push(JSON.parse(snap)); await persist(); render(); }); }
     });
     $('#pf', ov).addEventListener('submit', async e => {
       e.preventDefault(); const f = new FormData(e.target);
@@ -2099,7 +2130,7 @@ function moveCard() {
   }).join('') + '</div>';
 }
 function viewDates() {
-  const ev = events(), mv = moveCard(); if (!ev.length) return mv + '<div class="card empty">Дат пока нет. Укажи «Забрать до» или «Снова можно с» в карточке позиции.</div>';
+  const ev = events(), mv = moveCard(); if (!ev.length) return mv + '<div class="card empty">Дат пока нет. Укажи «Забрать до» или «Снова можно с» в карточке места.</div>';
   const groups = [['Просрочено', e => e.n < 0 && e.k === 'close'], ['Ближайшие 7 дней', e => e.n >= 0 && e.n <= 7], ['До 30 дней', e => e.n > 7 && e.n <= 30], ['Позже', e => e.n > 30], ['Уже можно (недавно)', e => e.n < 0 && e.k === 'reopen']];
   return mv + groups.map(([t, f]) => { const L = ev.filter(f); return L.length ? `<div class="sect"><h2>${t}</h2><span class="mut sm">${L.length}</span></div>${L.map(evItem).join('')}` : ''; }).join('');
 }
@@ -2147,10 +2178,10 @@ function viewSet() {
     <button class="btn" data-a="xlsx">${ic('xls')}Импорт из Excel (.xlsx)</button>
     <button class="btn" data-a="export">${ic('down')}Скачать зашифрованную копию</button>
     <button class="btn" data-a="import">${ic('up')}Загрузить копию</button>
-    <button class="btn" data-a="clrpos">Очистить все позиции</button>
+    <button class="btn" data-a="clrpos">Очистить все места</button>
     <button class="btn" data-a="demo">Добавить демо-данные</button>
     <div class="sm mut">Excel читается прямо в браузере и никуда не отправляется. Копия — это зашифрованный файл: без пароля или ключа восстановления это набор случайных байт.</div></div>
-  <div class="card col" style="grid-column:1/-1"><h3>Как это защищено <span class="tag">v4.14</span></h3><div class="sm mut">Мастер-пароль → PBKDF2‑SHA256, ${Vault.ITER_PW.toLocaleString('ru-RU')} итераций → ключ, которым открывается случайный ключ данных. Данные шифруются AES‑256‑GCM (с проверкой целостности). Пароль не хранится. В браузере лежит только шифротекст. Лимит попыток и задержка защищают от случайного подбора на устройстве, а от кражи файла защищает сила пароля.</div></div></div>`;
+  <div class="card col" style="grid-column:1/-1"><h3>Как это защищено <span class="tag">v4.15</span></h3><div class="sm mut">Мастер-пароль → PBKDF2‑SHA256, ${Vault.ITER_PW.toLocaleString('ru-RU')} итераций → ключ, которым открывается случайный ключ данных. Данные шифруются AES‑256‑GCM (с проверкой целостности). Пароль не хранится. В браузере лежит только шифротекст. Лимит попыток и задержка защищают от случайного подбора на устройстве, а от кражи файла защищает сила пароля.</div></div></div>`;
 }
 function openChangePw(forced) {
   modal(`<h3>${forced ? 'Задай новый мастер-пароль' : 'Смена пароля'}</h3><p class="sm mut">${forced ? 'Ты вошёл по ключу восстановления — старый пароль утерян, поставь новый.' : 'Ключ восстановления остаётся прежним.'}</p><form id="cf" class="col"><input class="inp" id="n1" type="password" placeholder="Новый пароль" autocomplete="new-password"><div class="meter" id="mt">${meterHTML(0)}</div><input class="inp" id="n2" type="password" placeholder="Повтори" autocomplete="new-password"><div class="err" id="er"></div><div class="row" style="justify-content:flex-end">${forced ? '' : '<button type="button" class="btn" data-x="c">Отмена</button>'}<button class="btn pri">Сохранить</button></div></form>`, ov => {
@@ -2175,7 +2206,7 @@ async function actions(a, el) {
     case 'syncon': { const repo = $('#sr').value.trim().replace(/^https?:\/\/github\.com\//, ''), token = $('#st').value.trim(), er = $('#ser'); if (!/^[\w.-]+\/[\w.-]+$/.test(repo) || !token) return er.textContent = 'Нужны репозиторий вида имя/репо и токен'; S.data.settings.sync = { repo, token, path: 'vault.json' }; await persist(); Sync.run(); toast('Синхронизация включена'); render(); break; }
     case 'bioon': try { const b = await Bio.enable(); LS.set('sv_vault', JSON.stringify(b)); toast('Вход по отпечатку включён'); } catch (e) { LS.del('sv_pk'); toast(e.message === 'NO_PRF' ? 'Это устройство не поддерживает такой вход' : 'Не получилось включить'); } render(); break;
     case 'biooff': LS.set('sv_vault', JSON.stringify(Bio.disable())); toast('Вход по отпечатку выключен'); render(); break;
-    case 'clrpos': { const n = S.data.positions.length; if (!n) { toast('Позиций нет'); break; } if (!await ask(`Удалить все позиции (${n})? Заметки и анализ останутся. Можно будет отменить.`, 'Удалить', true)) break; const old = S.data.positions; S.data.positions = []; await persist(); render(); undoToast('Позиции удалены', async () => { S.data.positions = old; await persist(); render(); }, 12000); break; }
+    case 'clrpos': { const n = S.data.positions.length; if (!n) { toast('Мест нет'); break; } if (!await ask(`Удалить все места (${n})? Заметки и анализ останутся. Можно будет отменить.`, 'Удалить', true)) break; const old = S.data.positions; S.data.positions = []; await persist(); render(); undoToast('Места удалены', async () => { S.data.positions = old; await persist(); render(); }, 12000); break; }
     case 'syncnow': Sync.run(); break;
     case 'syncoff': if (await ask('Отключить синхронизацию? Данные на устройстве останутся.', 'Отключить')) { delete S.data.settings.sync; LS.del('sv_sha'); await persist(); render(); } break;
     case 'hide': S.data.settings.hide = !S.data.settings.hide; persist(); render(); break;
@@ -2203,7 +2234,7 @@ async function actions(a, el) {
     case 'offers': openOffers(); break;
     case 'palette': openPalette(); break;
     case 'newPos': openPos(null); break;
-    case 'editPos': openPos(id); break;
+    case 'editPos': openPlace(id); break;
     case 'fnew': flEdit(null); break;
     case 'fedit': flEdit((S.data.flows || []).find(f => f.id === id)); break;
     case 'fapply': { const f = S.data.flows.find(z => z.id === id); if (!f) break; flApply(f); await persist(); render(); break; }
@@ -2258,13 +2289,13 @@ async function doXlsx(f) {
   let found; try { found = parseWorkbook(await f.arrayBuffer()); } catch (e) { closeModal('ovl', true); return toast('Не смог прочитать файл: ' + e.message); }
   closeModal('ovl', true);
   if (!found.length) return toast('Не нашёл знакомых листов («движение средств», «состояние средств», «Мысли»)');
-  modal(`<div class="row" style="margin-bottom:8px"><h3 class="grow">Импорт из Excel <span class="tag">v4.14</span></h3><button class="ic" data-x="c">${ic('x')}</button></div><p class="sm mut">Найдено в файле. Отметь, что добавить (всё добавляется к существующему):</p>
+  modal(`<div class="row" style="margin-bottom:8px"><h3 class="grow">Импорт из Excel <span class="tag">v4.15</span></h3><button class="ic" data-x="c">${ic('x')}</button></div><p class="sm mut">Найдено в файле. Отметь, что добавить (всё добавляется к существующему):</p>
   ${found.map((x, i) => `<label class="card row" style="align-items:flex-start;margin-bottom:8px"><input type="checkbox" data-k="${i}" ${x.positions ? 'data-pos="1"' : ''} ${x.def && x.count ? 'checked' : ''} ${x.count ? '' : 'disabled'}><div><b>${esc(x.title)}</b> <span class="tag">${x.count}</span><div class="sm mut">${esc(x.desc)}</div></div></label>`).join('')}
   ${found.some(f => f.positions && f.positions.some(q => q._cl)) ? `<label class="row sm" style="margin-top:6px;align-items:flex-start"><input type="checkbox" id="autocl" checked><span>Закрыть вклады, которые в последнем столбце пустые, а срок уже вышел — деньги переложены в другие строки (иначе посчитаются дважды). Таких: <b>${found.reduce((s, f) => s + (f.positions ? f.positions.filter(q => q._cl).length : 0), 0)}</b></span></label>` : ''}
   <div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn pri" data-x="go">Импортировать</button></div>`, ov => {
     ov.addEventListener('click', async e => {
       const b = e.target.closest('[data-x]'); if (!b) return; if (b.dataset.x === 'c') return closeModal();
-      if (b.dataset.x === 'go') { const ckd = [...ov.querySelectorAll('[data-k]:checked')].map(c => found[+c.dataset.k]); const hasPos = ckd.some(x => x.positions), oldPos = S.data.positions; if (hasPos && oldPos.length) { if (!await ask(`Сейчас в приложении уже ${oldPos.length} позиций (демо или прошлый импорт). Заменить их данными из файла? Иначе суммы задвоятся. Можно будет отменить.`, 'Заменить', true)) return; S.data.positions = []; setTimeout(() => undoToast('Старые позиции заменены', async () => { S.data.positions = oldPos.concat(S.data.positions.filter(q => !found.some(f => f.positions && f.positions.includes(q)))); await persist(); render(); }, 15000), 300); } let np = 0, nn = 0, na = 0, nclosed = 0, nf_ = 0; ov.querySelectorAll('[data-k]:checked').forEach(c => { const x = found[+c.dataset.k]; if (x.positions) { const ac = $('#autocl', ov) && $('#autocl', ov).checked; x.positions.forEach(q => { if (q._cl && ac) { q.history.push({ d: q._cl, amt: 0 }); q.archived = true; nclosed++; } delete q._cl; }); S.data.positions.push(...x.positions); np += x.positions.length; if (x.meta && x.meta.rates) { if (x.meta.rates.KZT) S.data.settings.rates.KZT = x.meta.rates.KZT; if (x.meta.rates.USD) S.data.settings.rates.USD = x.meta.rates.USD; if (x.meta.date && x.meta.rates.KZT && x.meta.rates.USD) { FX.st(); S.data.settings.rh[x.meta.date] = { KZT: x.meta.rates.KZT, USD: x.meta.rates.USD }; } if (x.meta.rh) { FX.st(); Object.assign(S.data.settings.rh, x.meta.rh); } const ld = x.meta.date; if (ld && (!S.data.settings.snapAt || ld > S.data.settings.snapAt)) S.data.settings.snapAt = ld; } } if (x.flows) { S.data.flows = S.data.flows || []; const hv = new Set(S.data.flows.map(flKey)); const fr = x.flows.filter(f => !hv.has(flKey(f))); S.data.flows.push(...fr); nf_ += fr.length; } if (x.notes) { const have = new Set(S.data.notes.map(n => n.d + '|' + n.text)); const fresh = x.notes.filter(n => !have.has(n.d + '|' + n.text)); S.data.notes.push(...fresh); nn += fresh.length; } if (x.an) { const A_ = A(); if (x.an.crypto) A_.crypto = x.an.crypto; if (x.an.years) A_.years = x.an.years; if (x.an.banks) A_.banks = x.an.banks; for (const k of ['home', 'cmp', 'tax', 'bt']) if (x.an[k]) A_[k] = x.an[k]; na++; } }); await persist(); closeModal(); render(); toast(`Добавлено: позиций ${np}, переводов ${nf_}, заметок ${nn}` + (na ? `, листов анализа ${na}` : '') + (nclosed ? `; закрыто как переложенные: ${nclosed}` : '')); }
+      if (b.dataset.x === 'go') { const ckd = [...ov.querySelectorAll('[data-k]:checked')].map(c => found[+c.dataset.k]); const hasPos = ckd.some(x => x.positions), oldPos = S.data.positions; if (hasPos && oldPos.length) { if (!await ask(`Сейчас в приложении уже ${oldPos.length} мест (демо или прошлый импорт). Заменить их данными из файла? Иначе суммы задвоятся. Можно будет отменить.`, 'Заменить', true)) return; S.data.positions = []; setTimeout(() => undoToast('Старые места заменены', async () => { S.data.positions = oldPos.concat(S.data.positions.filter(q => !found.some(f => f.positions && f.positions.includes(q)))); await persist(); render(); }, 15000), 300); } let np = 0, nn = 0, na = 0, nclosed = 0, nf_ = 0; ov.querySelectorAll('[data-k]:checked').forEach(c => { const x = found[+c.dataset.k]; if (x.positions) { const ac = $('#autocl', ov) && $('#autocl', ov).checked; x.positions.forEach(q => { if (q._cl && ac) { q.history.push({ d: q._cl, amt: 0 }); q.archived = true; nclosed++; } delete q._cl; }); S.data.positions.push(...x.positions); np += x.positions.length; if (x.meta && x.meta.rates) { if (x.meta.rates.KZT) S.data.settings.rates.KZT = x.meta.rates.KZT; if (x.meta.rates.USD) S.data.settings.rates.USD = x.meta.rates.USD; if (x.meta.date && x.meta.rates.KZT && x.meta.rates.USD) { FX.st(); S.data.settings.rh[x.meta.date] = { KZT: x.meta.rates.KZT, USD: x.meta.rates.USD }; } if (x.meta.rh) { FX.st(); Object.assign(S.data.settings.rh, x.meta.rh); } const ld = x.meta.date; if (ld && (!S.data.settings.snapAt || ld > S.data.settings.snapAt)) S.data.settings.snapAt = ld; } } if (x.flows) { S.data.flows = S.data.flows || []; const hv = new Set(S.data.flows.map(flKey)); const fr = x.flows.filter(f => !hv.has(flKey(f))); S.data.flows.push(...fr); nf_ += fr.length; } if (x.notes) { const have = new Set(S.data.notes.map(n => n.d + '|' + n.text)); const fresh = x.notes.filter(n => !have.has(n.d + '|' + n.text)); S.data.notes.push(...fresh); nn += fresh.length; } if (x.an) { const A_ = A(); if (x.an.crypto) A_.crypto = x.an.crypto; if (x.an.years) A_.years = x.an.years; if (x.an.banks) A_.banks = x.an.banks; for (const k of ['home', 'cmp', 'tax', 'bt']) if (x.an[k]) A_[k] = x.an[k]; na++; } }); await persist(); closeModal(); render(); toast(`Добавлено: мест ${np}, переводов ${nf_}, заметок ${nn}` + (na ? `, листов анализа ${na}` : '') + (nclosed ? `; закрыто как переложенные: ${nclosed}` : '')); }
     });
   });
 }

@@ -176,7 +176,7 @@ function render() {
     ${TABS.map(([k, t, i]) => `<button class="nv ${S.tab === k ? 'on' : ''}" data-a="tab" data-id="${k}">${ic(i)}${t}${k === 'dates' && urgent ? `<span class="tag bad" style="margin-left:auto">${urgent}</span>` : ''}</button>`).join('')}
     <div class="grow"></div><button class="nv" data-a="palette">${ic('search')}Поиск <kbd style="margin-left:auto">Ctrl K</kbd></button></aside>
     <main class="main ${full ? 'fresh' : ''} ${S.tab === 'money' && S.mm === 'table' ? 'wide' : ''}">${S.memOnly ? '<div class="banner">Хранилище браузера недоступно — данные живут только до закрытия вкладки. Сделай экспорт копии в Настройках.</div>' : ''}
-    <div class="top"><h1>${TITLES[S.tab]}</h1><span class="tag" title="версия приложения">v4.14 · 08.11</span>
+    <div class="top"><h1>${TITLES[S.tab]}</h1><span class="tag" title="версия приложения">v4.15 · 08.11</span>
       <button class="ic" data-a="palette" title="Поиск и команды (Ctrl+K)">${ic('search')}</button>
       <button class="ic" data-a="hide" title="Скрыть суммы">${ic(d.settings.hide ? 'eyeoff' : 'eye')}</button>
       <button class="ic" data-a="lock" title="Заблокировать">${ic('lock')}</button></div>
@@ -189,7 +189,7 @@ function render() {
 /* ===== Обзор ===== */
 function viewHome() {
   const d = S.data;
-  if (!d.positions.length) return `<div class="card empty"><h2>Пока пусто</h2><p>Добавь первую позицию, импортируй свой Excel или загрузи демо-данные.</p><div class="row wrap" style="justify-content:center"><button class="btn pri" data-a="newPos">${ic('plus')}Добавить позицию</button><button class="btn" data-a="xlsx">${ic('xls')}Импорт из Excel</button><button class="btn" data-a="demo">Демо-данные</button></div></div>`;
+  if (!d.positions.length) return `<div class="card empty"><h2>Пока пусто</h2><p>Добавь первое место, импортируй свой Excel или загрузи демо-данные.</p><div class="row wrap" style="justify-content:center"><button class="btn pri" data-a="newPos">${ic('plus')}Добавить место</button><button class="btn" data-a="xlsx">${ic('xls')}Импорт из Excel</button><button class="btn" data-a="demo">Демо-данные</button></div></div>`;
   const T = todayISO(), t = totals(), now = t.rub, prev = totalAt(addDays(T, -30)), dl = prev > 0 ? (now - prev) / prev * 100 : null;
   const ds = [...new Set(d.positions.flatMap(p => p.history.map(h => h.d)))].sort(), dLast = ds[ds.length - 1] || T, dPrev = ds[ds.length - 2];
   const dS = dPrev ? now - totalAt(dPrev) : null, yAgo = totalAt(addDays(dLast, -365)), dY = yAgo > 0 ? now - yAgo : null;
@@ -217,10 +217,10 @@ function viewHome() {
   <div class="grid g2" style="margin-top:14px">${goalCard()}<div class="card"><h3 style="margin-bottom:8px">Прирост по годам</h3>${yearBars()}</div></div>
   <div class="card" style="margin-top:14px"><div class="row" style="margin-bottom:10px"><h3 class="grow">Календарь закрытий</h3><span class="mut sm">полгода вперёд</span></div>${heatmap()}</div>
   <div class="sect"><h2>Ближайшие даты</h2><button class="btn sm" data-a="tab" data-id="dates">Все</button></div>
-  ${ev.length ? ev.map(evItem).join('') : '<div class="card empty">Дат пока нет — укажи «забрать до» в карточке позиции</div>'}`;
+  ${ev.length ? ev.map(evItem).join('') : '<div class="card empty">Дат пока нет — укажи «забрать до» в карточке места</div>'}`;
 }
 
-/* ===== Позиции ===== */
+/* ===== Места ===== */
 function viewMoney() {
   const by = {}; let T = 0;
   S.data.positions.filter(p => !p.archived).forEach(p => { const v = rubOf(p); by[p.cur] = (by[p.cur] || 0) + v; T += v; });
@@ -260,10 +260,35 @@ function posCalcText(f, hist) {
   const inc = g.bal - a + g.acc + g.paid, mi = m.bal - a + m.acc + m.paid;
   return `За 30 дней ≈ <b class="money">+${fmt(mi, cur)}</b> · ${q.close && q.close > T ? 'к ' + fmtDate(q.close) : 'за год'} ≈ <b class="money">+${fmt(inc, cur)}</b>` + (g.paid ? ` (из них на другой счёт ${fmt(g.paid, cur)})` : '') + ` · на счёте будет ≈ <b class="money">${fmt(g.bal + g.acc, cur)}</b>` + `<div class="mut" style="margin-top:2px">Эффективная доходность ≈ ${(inc / a * 365 / Math.max(1, dnum(to) - dnum(T)) * 100).toFixed(2).replace('.', ',')}% годовых</div>`;
 }
+function openPlace(id) {
+  const p = S.data.positions.find(z => z.id === id); if (!p) return;
+  const a = lastAmt(p), po = payoutOf(p), n = p.close ? daysTo(p.close) : null, cp = typeof CAPS !== 'undefined' && CAPS.find(c => c[0] === (p.cap || ''));
+  const hs = [...p.history].sort((x, y) => x.d < y.d ? -1 : 1).slice(-24), mx = Math.max(...hs.map(h => h.amt), 1);
+  const spark = hs.length > 1 ? `<div class="pspark">${hs.map(h => `<i title="${fmtDate(h.d)}: ${esc(fmt(h.amt, p.cur))}" style="height:${Math.max(6, h.amt / mx * 100)}%"></i>`).join('')}</div><div class="sm mut" style="display:flex;justify-content:space-between"><span>${fmtDate(hs[0].d)}</span><span>${fmtDate(hs[hs.length - 1].d)}</span></div>` : '<div class="sm mut">Пока одна точка. Добавь ещё суммы в «Изменить», и тут появится динамика.</div>';
+  const kv = (k, v) => v ? `<div class="pkv"><span>${k}</span><span>${v}</span></div>` : '';
+  const cond = [kv('Ставка', p.rate !== '' && p.rate != null ? p.rate + '%' : ''), kv('Проценты', cp && p.cap ? esc(cp[1]) : ''), kv('Открыто', p.open ? fmtDate(p.open) : ''), kv('Забрать до', p.close ? fmtDate(p.close) + (n != null ? ` (через ${n} дн.)` : '') : ''), kv('К выплате', po ? '≈ ' + money(po.total, p.cur) : ''), kv('Снова можно с', p.reopen ? fmtDate(p.reopen) : '')].join('') + (p.cond ? `<div class="sm mut" style="white-space:pre-wrap;margin-top:6px">${esc(p.cond)}</div>` : '');
+  const fl = (S.data.flows || []).filter(f => f.from === p.where || f.to === p.where).sort((x, y) => x.d < y.d ? 1 : -1);
+  const flh = fl.length ? fl.slice(0, 6).map(f => { const t = flType(f), out = f.from === p.where; return `<div class="pkv"><span>${fmtDate(f.d)} · ${FLT[t]}${t === 'move' ? (out ? ' → ' + esc(f.to) : ' из ' + esc(f.from)) : ''}</span><span class="${out ? 'mi' : 'pl'}">${out ? '−' : '+'}${esc(fmt(f.amt, f.cur))}</span></div>`; }).join('') + (fl.length > 6 ? `<div class="sm mut">и ещё ${fl.length - 6}. Все в «Движении».</div>` : '') : '<div class="sm mut">Движений по этому месту нет.</div>';
+  const nts = S.data.notes.filter(z => z.where === p.where).sort((x, y) => x.d < y.d ? 1 : -1);
+  const nth = nts.length ? nts.map(z => `<div class="pkv" style="display:block"><span class="ntk nk-${z.kind || 'x'}" style="cursor:default">${NK[z.kind || '']}</span> <span class="sm mut">${fmtDate(z.d)}</span><div style="white-space:pre-wrap;margin-top:2px">${esc(z.text)}</div></div>`).join('') : '<div class="sm mut">Заметок нет.</div>';
+  const html = `<div class="row" style="margin-bottom:8px"><div class="dot" style="background:${typeColor(p.type)}">${esc((p.where || '?')[0].toUpperCase())}</div><div class="grow"><h3 style="margin:0">${esc(p.where)}</h3><div class="sm mut">${esc(p.type)}${p.archived ? ' · в архиве' : ''}${p.excl ? ' · не в итогах' : ''}</div></div><button class="ic" data-x="close">${ic('x')}</button></div>
+  <div class="card" style="margin-bottom:10px"><div class="big money" style="font-size:26px;font-weight:700">${money(a, p.cur)}</div>${p.cur !== 'RUB' ? `<div class="sm mut">≈ ${esc(fmt(rubOf(p), 'RUB'))}</div>` : ''}</div>
+  <div class="pbox"><div class="pt">Динамика суммы</div>${spark}</div>
+  <div class="pbox"><div class="pt">Условия</div>${cond || '<div class="sm mut">Условия не заполнены.</div>'}</div>
+  <div class="pbox"><div class="pt">Движение (${fl.length})</div>${flh}</div>
+  <div class="pbox"><div class="pt">Заметки (${nts.length})</div>${nth}<div class="row" style="margin-top:8px"><input class="inp grow" id="pnt" placeholder="Новая заметка к этому месту"><button class="btn sm" data-x="pnadd">${ic('plus')}</button></div></div>
+  <div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn pri" data-x="pedit">Изменить</button></div>`;
+  modal(html, ov => ov.addEventListener('click', async e => {
+    const b = e.target.closest('[data-x]'); if (!b) return; const x = b.dataset.x;
+    if (x === 'close') closeModal();
+    else if (x === 'pedit') { closeModal(); openPos(p.id); }
+    else if (x === 'pnadd') { const t = $('#pnt', ov).value.trim(); if (!t) return toast('Напиши текст заметки'); S.data.notes.push({ id: uid(), d: todayISO(), text: t, kind: '', where: p.where }); await persist(); closeModal(); openPlace(p.id); }
+  }));
+}
 function openPos(id) {
   const isNew = !id; const p = isNew ? { id: uid(), type: 'Банковский вклад', where: '', cur: 'RUB', rate: '', cap: 'end', rateOver: '', promoTo: '', rateAfter: '', prolong: false, cond: '', open: '', close: '', reopen: '', comment: '', limit: '', history: [], archived: false } : S.data.positions.find(x => x.id === id);
   const draft = { ...p, history: p.history.map(h => ({ ...h })) }, po = isNew ? null : payoutOf(p);
-  const html = `<div class="row" style="margin-bottom:12px"><h3 class="grow">${isNew ? 'Новая позиция' : 'Позиция'}</h3><button class="ic" data-x="close">${ic('x')}</button></div>
+  const html = `<div class="row" style="margin-bottom:12px"><h3 class="grow">${isNew ? 'Новое место' : 'Место'}</h3><button class="ic" data-x="close">${ic('x')}</button></div>
   <form id="pf" class="col" autocomplete="off">
     <div class="grid g2" style="gap:10px"><label class="f">Тип<input class="inp" name="type" list="tl" value="${esc(draft.type)}"><datalist id="tl">${TYPES.map(t => `<option value="${esc(t)}">`).join('')}</datalist></label>
     <label class="f">Где лежит<input class="inp" name="where" value="${esc(draft.where)}" required></label></div>
@@ -301,8 +326,8 @@ function openPos(id) {
     });
     ov.addEventListener('holddone', async e => {
       const act = e.detail.act, q = S.data.positions.find(z => z.id === p.id); if (!q) return; const snap = JSON.stringify(q);
-      if (act === 'arch') { q.history = q.history.filter(h => h.d !== todayISO()); q.history.push({ d: todayISO(), amt: 0 }); q.archived = true; await persist(); closeModal(); render(); undoToast('Позиция в архиве', async () => { const i = S.data.positions.findIndex(z => z.id === p.id); S.data.positions[i] = JSON.parse(snap); await persist(); render(); }); }
-      else if (act === 'del') { S.data.positions = S.data.positions.filter(z => z.id !== p.id); await persist(); closeModal(); render(); undoToast('Позиция удалена', async () => { S.data.positions.push(JSON.parse(snap)); await persist(); render(); }); }
+      if (act === 'arch') { q.history = q.history.filter(h => h.d !== todayISO()); q.history.push({ d: todayISO(), amt: 0 }); q.archived = true; await persist(); closeModal(); render(); undoToast('Место в архиве', async () => { const i = S.data.positions.findIndex(z => z.id === p.id); S.data.positions[i] = JSON.parse(snap); await persist(); render(); }); }
+      else if (act === 'del') { S.data.positions = S.data.positions.filter(z => z.id !== p.id); await persist(); closeModal(); render(); undoToast('Место удалено', async () => { S.data.positions.push(JSON.parse(snap)); await persist(); render(); }); }
     });
     $('#pf', ov).addEventListener('submit', async e => {
       e.preventDefault(); const f = new FormData(e.target);
@@ -336,7 +361,7 @@ function moveCard() {
   }).join('') + '</div>';
 }
 function viewDates() {
-  const ev = events(), mv = moveCard(); if (!ev.length) return mv + '<div class="card empty">Дат пока нет. Укажи «Забрать до» или «Снова можно с» в карточке позиции.</div>';
+  const ev = events(), mv = moveCard(); if (!ev.length) return mv + '<div class="card empty">Дат пока нет. Укажи «Забрать до» или «Снова можно с» в карточке места.</div>';
   const groups = [['Просрочено', e => e.n < 0 && e.k === 'close'], ['Ближайшие 7 дней', e => e.n >= 0 && e.n <= 7], ['До 30 дней', e => e.n > 7 && e.n <= 30], ['Позже', e => e.n > 30], ['Уже можно (недавно)', e => e.n < 0 && e.k === 'reopen']];
   return mv + groups.map(([t, f]) => { const L = ev.filter(f); return L.length ? `<div class="sect"><h2>${t}</h2><span class="mut sm">${L.length}</span></div>${L.map(evItem).join('')}` : ''; }).join('');
 }
@@ -384,10 +409,10 @@ function viewSet() {
     <button class="btn" data-a="xlsx">${ic('xls')}Импорт из Excel (.xlsx)</button>
     <button class="btn" data-a="export">${ic('down')}Скачать зашифрованную копию</button>
     <button class="btn" data-a="import">${ic('up')}Загрузить копию</button>
-    <button class="btn" data-a="clrpos">Очистить все позиции</button>
+    <button class="btn" data-a="clrpos">Очистить все места</button>
     <button class="btn" data-a="demo">Добавить демо-данные</button>
     <div class="sm mut">Excel читается прямо в браузере и никуда не отправляется. Копия — это зашифрованный файл: без пароля или ключа восстановления это набор случайных байт.</div></div>
-  <div class="card col" style="grid-column:1/-1"><h3>Как это защищено <span class="tag">v4.14</span></h3><div class="sm mut">Мастер-пароль → PBKDF2‑SHA256, ${Vault.ITER_PW.toLocaleString('ru-RU')} итераций → ключ, которым открывается случайный ключ данных. Данные шифруются AES‑256‑GCM (с проверкой целостности). Пароль не хранится. В браузере лежит только шифротекст. Лимит попыток и задержка защищают от случайного подбора на устройстве, а от кражи файла защищает сила пароля.</div></div></div>`;
+  <div class="card col" style="grid-column:1/-1"><h3>Как это защищено <span class="tag">v4.15</span></h3><div class="sm mut">Мастер-пароль → PBKDF2‑SHA256, ${Vault.ITER_PW.toLocaleString('ru-RU')} итераций → ключ, которым открывается случайный ключ данных. Данные шифруются AES‑256‑GCM (с проверкой целостности). Пароль не хранится. В браузере лежит только шифротекст. Лимит попыток и задержка защищают от случайного подбора на устройстве, а от кражи файла защищает сила пароля.</div></div></div>`;
 }
 function openChangePw(forced) {
   modal(`<h3>${forced ? 'Задай новый мастер-пароль' : 'Смена пароля'}</h3><p class="sm mut">${forced ? 'Ты вошёл по ключу восстановления — старый пароль утерян, поставь новый.' : 'Ключ восстановления остаётся прежним.'}</p><form id="cf" class="col"><input class="inp" id="n1" type="password" placeholder="Новый пароль" autocomplete="new-password"><div class="meter" id="mt">${meterHTML(0)}</div><input class="inp" id="n2" type="password" placeholder="Повтори" autocomplete="new-password"><div class="err" id="er"></div><div class="row" style="justify-content:flex-end">${forced ? '' : '<button type="button" class="btn" data-x="c">Отмена</button>'}<button class="btn pri">Сохранить</button></div></form>`, ov => {
@@ -412,7 +437,7 @@ async function actions(a, el) {
     case 'syncon': { const repo = $('#sr').value.trim().replace(/^https?:\/\/github\.com\//, ''), token = $('#st').value.trim(), er = $('#ser'); if (!/^[\w.-]+\/[\w.-]+$/.test(repo) || !token) return er.textContent = 'Нужны репозиторий вида имя/репо и токен'; S.data.settings.sync = { repo, token, path: 'vault.json' }; await persist(); Sync.run(); toast('Синхронизация включена'); render(); break; }
     case 'bioon': try { const b = await Bio.enable(); LS.set('sv_vault', JSON.stringify(b)); toast('Вход по отпечатку включён'); } catch (e) { LS.del('sv_pk'); toast(e.message === 'NO_PRF' ? 'Это устройство не поддерживает такой вход' : 'Не получилось включить'); } render(); break;
     case 'biooff': LS.set('sv_vault', JSON.stringify(Bio.disable())); toast('Вход по отпечатку выключен'); render(); break;
-    case 'clrpos': { const n = S.data.positions.length; if (!n) { toast('Позиций нет'); break; } if (!await ask(`Удалить все позиции (${n})? Заметки и анализ останутся. Можно будет отменить.`, 'Удалить', true)) break; const old = S.data.positions; S.data.positions = []; await persist(); render(); undoToast('Позиции удалены', async () => { S.data.positions = old; await persist(); render(); }, 12000); break; }
+    case 'clrpos': { const n = S.data.positions.length; if (!n) { toast('Мест нет'); break; } if (!await ask(`Удалить все места (${n})? Заметки и анализ останутся. Можно будет отменить.`, 'Удалить', true)) break; const old = S.data.positions; S.data.positions = []; await persist(); render(); undoToast('Места удалены', async () => { S.data.positions = old; await persist(); render(); }, 12000); break; }
     case 'syncnow': Sync.run(); break;
     case 'syncoff': if (await ask('Отключить синхронизацию? Данные на устройстве останутся.', 'Отключить')) { delete S.data.settings.sync; LS.del('sv_sha'); await persist(); render(); } break;
     case 'hide': S.data.settings.hide = !S.data.settings.hide; persist(); render(); break;
@@ -440,7 +465,7 @@ async function actions(a, el) {
     case 'offers': openOffers(); break;
     case 'palette': openPalette(); break;
     case 'newPos': openPos(null); break;
-    case 'editPos': openPos(id); break;
+    case 'editPos': openPlace(id); break;
     case 'fnew': flEdit(null); break;
     case 'fedit': flEdit((S.data.flows || []).find(f => f.id === id)); break;
     case 'fapply': { const f = S.data.flows.find(z => z.id === id); if (!f) break; flApply(f); await persist(); render(); break; }
@@ -495,13 +520,13 @@ async function doXlsx(f) {
   let found; try { found = parseWorkbook(await f.arrayBuffer()); } catch (e) { closeModal('ovl', true); return toast('Не смог прочитать файл: ' + e.message); }
   closeModal('ovl', true);
   if (!found.length) return toast('Не нашёл знакомых листов («движение средств», «состояние средств», «Мысли»)');
-  modal(`<div class="row" style="margin-bottom:8px"><h3 class="grow">Импорт из Excel <span class="tag">v4.14</span></h3><button class="ic" data-x="c">${ic('x')}</button></div><p class="sm mut">Найдено в файле. Отметь, что добавить (всё добавляется к существующему):</p>
+  modal(`<div class="row" style="margin-bottom:8px"><h3 class="grow">Импорт из Excel <span class="tag">v4.15</span></h3><button class="ic" data-x="c">${ic('x')}</button></div><p class="sm mut">Найдено в файле. Отметь, что добавить (всё добавляется к существующему):</p>
   ${found.map((x, i) => `<label class="card row" style="align-items:flex-start;margin-bottom:8px"><input type="checkbox" data-k="${i}" ${x.positions ? 'data-pos="1"' : ''} ${x.def && x.count ? 'checked' : ''} ${x.count ? '' : 'disabled'}><div><b>${esc(x.title)}</b> <span class="tag">${x.count}</span><div class="sm mut">${esc(x.desc)}</div></div></label>`).join('')}
   ${found.some(f => f.positions && f.positions.some(q => q._cl)) ? `<label class="row sm" style="margin-top:6px;align-items:flex-start"><input type="checkbox" id="autocl" checked><span>Закрыть вклады, которые в последнем столбце пустые, а срок уже вышел — деньги переложены в другие строки (иначе посчитаются дважды). Таких: <b>${found.reduce((s, f) => s + (f.positions ? f.positions.filter(q => q._cl).length : 0), 0)}</b></span></label>` : ''}
   <div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn pri" data-x="go">Импортировать</button></div>`, ov => {
     ov.addEventListener('click', async e => {
       const b = e.target.closest('[data-x]'); if (!b) return; if (b.dataset.x === 'c') return closeModal();
-      if (b.dataset.x === 'go') { const ckd = [...ov.querySelectorAll('[data-k]:checked')].map(c => found[+c.dataset.k]); const hasPos = ckd.some(x => x.positions), oldPos = S.data.positions; if (hasPos && oldPos.length) { if (!await ask(`Сейчас в приложении уже ${oldPos.length} позиций (демо или прошлый импорт). Заменить их данными из файла? Иначе суммы задвоятся. Можно будет отменить.`, 'Заменить', true)) return; S.data.positions = []; setTimeout(() => undoToast('Старые позиции заменены', async () => { S.data.positions = oldPos.concat(S.data.positions.filter(q => !found.some(f => f.positions && f.positions.includes(q)))); await persist(); render(); }, 15000), 300); } let np = 0, nn = 0, na = 0, nclosed = 0, nf_ = 0; ov.querySelectorAll('[data-k]:checked').forEach(c => { const x = found[+c.dataset.k]; if (x.positions) { const ac = $('#autocl', ov) && $('#autocl', ov).checked; x.positions.forEach(q => { if (q._cl && ac) { q.history.push({ d: q._cl, amt: 0 }); q.archived = true; nclosed++; } delete q._cl; }); S.data.positions.push(...x.positions); np += x.positions.length; if (x.meta && x.meta.rates) { if (x.meta.rates.KZT) S.data.settings.rates.KZT = x.meta.rates.KZT; if (x.meta.rates.USD) S.data.settings.rates.USD = x.meta.rates.USD; if (x.meta.date && x.meta.rates.KZT && x.meta.rates.USD) { FX.st(); S.data.settings.rh[x.meta.date] = { KZT: x.meta.rates.KZT, USD: x.meta.rates.USD }; } if (x.meta.rh) { FX.st(); Object.assign(S.data.settings.rh, x.meta.rh); } const ld = x.meta.date; if (ld && (!S.data.settings.snapAt || ld > S.data.settings.snapAt)) S.data.settings.snapAt = ld; } } if (x.flows) { S.data.flows = S.data.flows || []; const hv = new Set(S.data.flows.map(flKey)); const fr = x.flows.filter(f => !hv.has(flKey(f))); S.data.flows.push(...fr); nf_ += fr.length; } if (x.notes) { const have = new Set(S.data.notes.map(n => n.d + '|' + n.text)); const fresh = x.notes.filter(n => !have.has(n.d + '|' + n.text)); S.data.notes.push(...fresh); nn += fresh.length; } if (x.an) { const A_ = A(); if (x.an.crypto) A_.crypto = x.an.crypto; if (x.an.years) A_.years = x.an.years; if (x.an.banks) A_.banks = x.an.banks; for (const k of ['home', 'cmp', 'tax', 'bt']) if (x.an[k]) A_[k] = x.an[k]; na++; } }); await persist(); closeModal(); render(); toast(`Добавлено: позиций ${np}, переводов ${nf_}, заметок ${nn}` + (na ? `, листов анализа ${na}` : '') + (nclosed ? `; закрыто как переложенные: ${nclosed}` : '')); }
+      if (b.dataset.x === 'go') { const ckd = [...ov.querySelectorAll('[data-k]:checked')].map(c => found[+c.dataset.k]); const hasPos = ckd.some(x => x.positions), oldPos = S.data.positions; if (hasPos && oldPos.length) { if (!await ask(`Сейчас в приложении уже ${oldPos.length} мест (демо или прошлый импорт). Заменить их данными из файла? Иначе суммы задвоятся. Можно будет отменить.`, 'Заменить', true)) return; S.data.positions = []; setTimeout(() => undoToast('Старые места заменены', async () => { S.data.positions = oldPos.concat(S.data.positions.filter(q => !found.some(f => f.positions && f.positions.includes(q)))); await persist(); render(); }, 15000), 300); } let np = 0, nn = 0, na = 0, nclosed = 0, nf_ = 0; ov.querySelectorAll('[data-k]:checked').forEach(c => { const x = found[+c.dataset.k]; if (x.positions) { const ac = $('#autocl', ov) && $('#autocl', ov).checked; x.positions.forEach(q => { if (q._cl && ac) { q.history.push({ d: q._cl, amt: 0 }); q.archived = true; nclosed++; } delete q._cl; }); S.data.positions.push(...x.positions); np += x.positions.length; if (x.meta && x.meta.rates) { if (x.meta.rates.KZT) S.data.settings.rates.KZT = x.meta.rates.KZT; if (x.meta.rates.USD) S.data.settings.rates.USD = x.meta.rates.USD; if (x.meta.date && x.meta.rates.KZT && x.meta.rates.USD) { FX.st(); S.data.settings.rh[x.meta.date] = { KZT: x.meta.rates.KZT, USD: x.meta.rates.USD }; } if (x.meta.rh) { FX.st(); Object.assign(S.data.settings.rh, x.meta.rh); } const ld = x.meta.date; if (ld && (!S.data.settings.snapAt || ld > S.data.settings.snapAt)) S.data.settings.snapAt = ld; } } if (x.flows) { S.data.flows = S.data.flows || []; const hv = new Set(S.data.flows.map(flKey)); const fr = x.flows.filter(f => !hv.has(flKey(f))); S.data.flows.push(...fr); nf_ += fr.length; } if (x.notes) { const have = new Set(S.data.notes.map(n => n.d + '|' + n.text)); const fresh = x.notes.filter(n => !have.has(n.d + '|' + n.text)); S.data.notes.push(...fresh); nn += fresh.length; } if (x.an) { const A_ = A(); if (x.an.crypto) A_.crypto = x.an.crypto; if (x.an.years) A_.years = x.an.years; if (x.an.banks) A_.banks = x.an.banks; for (const k of ['home', 'cmp', 'tax', 'bt']) if (x.an[k]) A_[k] = x.an[k]; na++; } }); await persist(); closeModal(); render(); toast(`Добавлено: мест ${np}, переводов ${nf_}, заметок ${nn}` + (na ? `, листов анализа ${na}` : '') + (nclosed ? `; закрыто как переложенные: ${nclosed}` : '')); }
     });
   });
 }

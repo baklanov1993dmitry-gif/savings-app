@@ -43,7 +43,7 @@ function openPalette() {
   if (!S.data) return;
   const items = () => [
     ...TABS.map(([k, t, i]) => ({ l: 'Перейти: ' + t, h: 'раздел', i, run: () => { S.tab = k; S.q = ''; S.filter = 'Все'; S.fresh = true; render(); scrollTo(0, 0); } })),
-    { l: 'Добавить позицию', h: 'действие', i: 'plus', run: () => openPos(null) },
+    { l: 'Добавить место', h: 'действие', i: 'plus', run: () => openPos(null) },
     { l: S.data.settings.hide ? 'Показать суммы' : 'Скрыть суммы', h: 'действие', i: 'eye', run: () => { S.data.settings.hide = !S.data.settings.hide; persist(); render(); } },
     { l: 'Заблокировать', h: 'действие', i: 'lock', run: lock },
     { l: 'Цель накопления', h: 'действие', i: 'gear', run: openGoal },
@@ -52,7 +52,7 @@ function openPalette() {
     ...S.data.positions.filter(p => !p.archived).map(p => ({ l: p.where, h: `${esc(p.type)} · <span class="money">${fmt(lastAmt(p), p.cur)}</span>`, i: 'list', hh: 1, run: () => openPos(p.id) })),
   ];
   let sel = 0, list = [];
-  modal(`<input class="inp" id="pq" placeholder="Позиция или команда…" autocomplete="off"><div id="pl" style="margin-top:8px"></div><div class="sm mut" style="padding:8px 4px 0"><kbd>↑↓</kbd> выбрать · <kbd>Enter</kbd> открыть · <kbd>Esc</kbd> закрыть</div>`, ov => {
+  modal(`<input class="inp" id="pq" placeholder="Место или команда…" autocomplete="off"><div id="pl" style="margin-top:8px"></div><div class="sm mut" style="padding:8px 4px 0"><kbd>↑↓</kbd> выбрать · <kbd>Enter</kbd> открыть · <kbd>Esc</kbd> закрыть</div>`, ov => {
     ov.classList.add('top'); const q = $('#pq', ov), pl = $('#pl', ov);
     const draw = () => {
       const w = q.value.toLowerCase().split(/\s+/).filter(Boolean); const all = items();

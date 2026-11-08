@@ -1,6 +1,6 @@
 /* ===== Движение средств: журнал переводов «откуда → куда» ===== */
 const FLN = { RUB: 1000, KZT: 5000, USD: 20 };
-/** собрать переводы из позиций листа «движение средств»: пометки в клетках + пропажа суммы в одном месте и появление в другом */
+/** собрать переводы из мест листа «движение средств»: пометки в клетках + пропажа суммы в одном месте и появление в другом */
 function flowsFrom(positions) {
   const all = positions.flatMap(p => p.history.map(h => h.d)).sort(), first = all[0], ev = [];
   for (const p of positions) {
@@ -53,7 +53,7 @@ function flList() {
     const t = flType(f), sg = t === 'in' ? '+' : t === 'out' ? '−' : '', sr = FLSRC[f.src || 'xls'];
     h += `<div class="item fl" data-a="fedit" data-id="${f.id}" style="--cc:var(--cc-${f.cur})"><div class="fld">${fmtDate(f.d)}</div>
     <div class="grow flw"><span class="fltp ${t}">${FLT[t]}</span><span>${t === 'move' ? esc(f.from) + '</span><span class="fla">→</span><span>' + esc(f.to) : esc(f.to || f.from)}</span><span class="flsrc" title="${esc(sr[1])}">${sr[0]}</span>${f.note ? `<div class="sm mut flnote">${esc(f.note)}</div>` : ''}</div>
-    <div class="fls money ${t}">${sg}${fmt(f.amt, f.cur)}</div>${f.applied ? '' : `<button class="btn sm" data-a="fapply" data-id="${f.id}" title="Изменить суммы в позициях">Применить</button>`}</div>`;
+    <div class="fls money ${t}">${sg}${fmt(f.amt, f.cur)}</div>${f.applied ? '' : `<button class="btn sm" data-a="fapply" data-id="${f.id}" title="Изменить суммы в местах">Применить</button>`}</div>`;
   }
   return h;
 }
@@ -79,7 +79,7 @@ function flEdit(f) {
   <datalist id="flpl">${pl.map(x => `<option value="${esc(x)}">`).join('')}</datalist>
   <div class="row"><label class="f grow">Сумма<input class="inp" id="fa" inputmode="decimal" value="${d.amt}"></label><label class="f">Валюта<select class="inp" id="fc">${['RUB', 'KZT', 'USD'].map(c => `<option value="${c}" ${d.cur === c ? 'selected' : ''}>${SYM[c]} ${c}</option>`).join('')}</select></label></div>
   <label class="f">Комментарий<input class="inp" id="fn" value="${esc(d.note || '')}"></label>
-  ${d.applied ? '' : '<label class="row"><input type="checkbox" id="fap" checked> Применить к позициям (изменить суммы «откуда» и «куда» на эту дату)</label>'}
+  ${d.applied ? '' : '<label class="row"><input type="checkbox" id="fap" checked> Применить к местам (изменить суммы «откуда» и «куда» на эту дату)</label>'}
   <div class="row" style="justify-content:flex-end;gap:8px;margin-top:6px">${isNew ? '' : '<button class="btn bad" data-x="del" style="margin-right:auto">Удалить</button>'}<button class="btn" data-x="c">Отмена</button><button class="btn pri" data-x="ok">Сохранить</button></div></div>`, ov => {
     ov.addEventListener('click', async e => {
       const b = e.target.closest('[data-x]'); if (!b) return; if (b.dataset.x === 'c') return closeModal();
@@ -93,7 +93,7 @@ function flEdit(f) {
     });
   });
 }
-/** поменять суммы в позициях «откуда» (минус) и «куда» (плюс) на дату перевода */
+/** поменять суммы в местах «откуда» (минус) и «куда» (плюс) на дату перевода */
 function flApply(f) {
   const done = [], miss = [];
   const go = (name, sign) => {
@@ -102,5 +102,5 @@ function flApply(f) {
     const a = Math.max(0, lastAmt(p, f.d) + sign * f.amt); p.history = p.history.filter(h => h.d !== f.d); p.history.push({ d: f.d, amt: a }); p.history.sort((x, y) => x.d < y.d ? -1 : 1); done.push(name);
   };
   go(f.from, -1); go(f.to, 1); f.applied = true;
-  toast(done.length ? 'Суммы обновлены: ' + done.join(', ') + (miss.length ? '. Не нашёл: ' + miss.join(', ') : '') : 'Не нашёл позиции в этой валюте — суммы не менялись', 4200);
+  toast(done.length ? 'Суммы обновлены: ' + done.join(', ') + (miss.length ? '. Не нашёл: ' + miss.join(', ') : '') : 'Не нашёл места в этой валюте — суммы не менялись', 4200);
 }
