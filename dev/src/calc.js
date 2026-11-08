@@ -65,3 +65,16 @@ function endIncome(p, upTo) {
   for (let i = 0; i < cuts.length - 1; i++) { const a = amtAt(cuts[i]); if (a > 0) sum += incomeOf(p, cuts[i], a, cuts[i + 1]); }
   return sum;
 }
+
+/** проценты по истории сумм по отрезкам между снимками (для налога и т.п.) */
+function segIncome(p, from, to) {
+  const hs = [...p.history].sort((a, b) => a.d < b.d ? -1 : 1); if (!from || !to || from >= to) return 0;
+  const cuts = [from, ...hs.map(h => h.d).filter(d => d > from && d < to), to]; let sum = 0;
+  for (let i = 0; i < cuts.length - 1; i++) { const a = lastAmt(p, cuts[i]); if (a > 0) sum += incomeOf(p, cuts[i], a, cuts[i + 1]); }
+  return sum;
+}
+/** проценты, зачисленные в сумму на шаге (d1, d2]: для «% в конце срока» — всё за срок в день закрытия */
+function creditedOn(p, d1, a1, d2) {
+  if (p.cap === 'end') return p.close && p.close > d1 && p.close <= d2 ? endIncome(p, p.close) : 0;
+  const g = grow(p, d1, a1, d2); return g.bal - a1 + g.paid;
+}

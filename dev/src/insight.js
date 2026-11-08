@@ -8,7 +8,7 @@ function whyChanged() {
   for (const p of inTot()) {
     const a1 = lastAmt(p, d1), a2 = lastAmt(p, d2), r1 = rateOf(p.cur, d1), r2 = rateOf(p.cur, d2);
     dl += a2 * r2 - a1 * r1; fx += a1 * (r2 - r1); if (Math.abs(a2 * r2 - a1 * r1) > 1) mv.push({ p, a1, a2, v: a2 * r2 - a1 * r1, fxp: a1 * (r2 - r1), amtp: (a2 - a1) * r2 });
-    if (p.rate && p.cap && a1 > 0 && !p.archived) { const g = grow(p, d1, a1, d2); pct += (g.bal - a1 + g.paid) * r2; un += g.acc * r2; }
+    if (p.rate && p.cap && (a1 > 0 || p.cap === 'end')) { pct += Math.min(creditedOn(p, d1, a1, d2), Math.max(0, a2 - a1 + creditedOn(p, d1, a1, d2))) * r2; if (!p.archived && a2 > 0) un += (p.cap === 'end' ? (p.close && p.close > d2 ? endIncome(p, d2) : 0) : grow(p, d1, a1, d2).acc) * r2; }
   }
   mv.sort((a, b) => Math.abs(b.v) - Math.abs(a.v));
   const seen = {}, dups = []; for (const p of S.data.positions) { if (p.excl) continue; const k = p.cur + '|' + p.where.toLowerCase().replace(/\s+/g, ' ').trim(); if (seen[k] && (lastAmt(p, d1) > 0 || lastAmt(seen[k], d1) > 0)) dups.push(p.where); else seen[k] = p; }
@@ -37,7 +37,7 @@ function todoList() {
 /** разложить изменение капитала между двумя датами */
 function decomp(d1, d2) {
   let fx = 0, pct = 0, dl = 0;
-  for (const p of inTot()) { const a1 = lastAmt(p, d1), a2 = lastAmt(p, d2), r1 = rateOf(p.cur, d1), r2 = rateOf(p.cur, d2); dl += a2 * r2 - a1 * r1; fx += a1 * (r2 - r1); if (p.rate && p.cap && a1 > 0) { const g = grow(p, d1, a1, d2), inc = g.bal - a1 + g.paid; pct += Math.min(inc, Math.max(0, a2 - a1 + inc)) * r2; } }
+  for (const p of inTot()) { const a1 = lastAmt(p, d1), a2 = lastAmt(p, d2), r1 = rateOf(p.cur, d1), r2 = rateOf(p.cur, d2); dl += a2 * r2 - a1 * r1; fx += a1 * (r2 - r1); if (p.rate && p.cap && (a1 > 0 || p.cap === 'end')) { const inc = creditedOn(p, d1, a1, d2); pct += Math.min(inc, Math.max(0, a2 - a1 + inc)) * r2; } }
   return { dl, fx, pct, other: dl - fx - pct };
 }
 /** откуда прирост за 12 месяцев: сумма по соседним снимкам */
@@ -49,12 +49,12 @@ function yearGrowth() {
 }
 function taxInfo() {
   const T = todayISO(), y = T.slice(0, 4), j1 = y + '-01-01', d31 = y + '-12-31', key = FX.keys().key || A().tax.key || 0; let inc = 0;
-  for (const p of S.data.positions) if (p.cur === 'RUB' && p.rate && p.cap) { const a0 = lastAmt(p, j1) || lastAmt(p); const from = lastAmt(p, j1) ? j1 : ((p.history[0] || {}).d || T); inc += incomeOf(p, from > j1 ? from : j1, a0, p.close && p.close < d31 && !p.prolong ? p.close : d31); }
+  for (const p of S.data.positions) if (p.cur === 'RUB' && p.rate && p.cap) inc += p.cap === 'end' ? (p.close && p.close >= j1 && p.close <= d31 ? endIncome(p, p.close) : 0) : segIncome(p, j1, p.close && p.close < d31 && !p.prolong ? p.close : d31);
   const free = 1e6 * key / 100; return { inc, free, key, y };
 }
 function riskInfo() {
   const t = totals(), tot = t.rub || 1, sh = c => (t.by[c] || 0) * rateOf(c) / tot * 100;
-  const places = act().map(p => ({ p, v: lastAmt(p) * rateOf(p.cur) })).sort((a, b) => b.v - a.v);
+  const bk = {}; act().forEach(p => { const k = bankOf(p) || p.where; bk[k] = (bk[k] || 0) + lastAmt(p) * rateOf(p.cur); }); const places = Object.entries(bk).map(([w, v]) => ({ p: { where: w }, v })).sort((a, b) => b.v - a.v);
   const crypto = act().filter(p => /крипт/i.test(p.type)).reduce((s, p) => s + lastAmt(p) * rateOf(p.cur), 0) / tot * 100;
   return { cur: [['RUB', sh('RUB')], ['KZT', sh('KZT')], ['USD', sh('USD')]], top: places[0] ? { w: places[0].p.where, s: places[0].v / tot * 100 } : null, crypto };
 }
@@ -79,7 +79,7 @@ function insightCards() {
   const risk = `<div class="card"><h3 style="margin-bottom:10px">Структура и риски</h3>
     <div style="display:flex;height:12px;border-radius:6px;overflow:hidden;margin-bottom:6px">${rk.cur.filter(x => x[1] > 0).map(([c, s], i) => `<div title="${c}" style="width:${s}%;background:var(--c${i + 1})"></div>`).join('')}</div>
     <div class="row wrap sm" style="gap:12px;margin-bottom:10px">${rk.cur.filter(x => x[1] > 0).map(([c, s], i) => `<span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--c${i + 1});margin-right:4px"></span>${c} ${s.toFixed(0)}%</span>`).join('')}</div>
-    ${rk.top && rk.top.s > 30 ? `<div class="sm" style="margin-bottom:6px">⚠ <b>${esc(rk.top.w)}</b> — ${rk.top.s.toFixed(0)}% всех денег в одном месте${/кз_|kz/i.test(rk.top.w) ? '' : ' (страховка АСВ — до 1,4 млн ₽ на банк)'}.</div>` : ''}
+    ${rk.top && rk.top.s > 30 ? `<div class="sm" style="margin-bottom:6px">⚠ <b>${esc(rk.top.w)}</b> — ${rk.top.s.toFixed(0)}% всех денег в одном банке${/кз_|kz/i.test(rk.top.w) ? '' : ' (страховка АСВ — до 1,4 млн ₽ на банк)'}.</div>` : ''}
     ${rk.cur[1][1] > 40 ? `<div class="sm" style="margin-bottom:6px">${rk.cur[1][1].toFixed(0)}% в тенге: ослабление тенге на 5% ≈ −${fmt(totals().rub * rk.cur[1][1] / 100 * 0.05, 'RUB')}.</div>` : ''}
     ${rk.crypto > 0 ? `<div class="sm mut" style="margin-bottom:6px">Крипта — ${rk.crypto.toFixed(1)}% капитала.</div>` : ''}
     ${tx.free ? `<div style="margin-top:10px"><div class="row sm"><span class="grow">Налог с % по вкладам РФ за ${tx.y} (оценка)</span><b class="money">${fmt(tx.inc, 'RUB')} из ${fmt(tx.free, 'RUB')}</b></div><div style="height:8px;background:var(--line);border-radius:4px;margin-top:6px;overflow:hidden"><div style="height:100%;width:${tp}%;background:var(--${tp >= 100 ? 'bad' : tp > 80 ? 'warn' : 'acc'})"></div></div><div class="sm mut" style="margin-top:4px">Без налога — до 1 млн × ключевая ставка (${String(tx.key).replace('.', ',')}%). ${tx.inc > tx.free ? `С превышения ≈ ${fmt((tx.inc - tx.free) * 0.13, 'RUB')} НДФЛ (13%).` : `Запас ≈ ${fmt(tx.free - tx.inc, 'RUB')}.`} Оценка, не налоговая консультация.</div></div>` : ''}</div>`;
@@ -105,7 +105,7 @@ function conclusions() {
     vc(up ? 'g' : 'w', `За год капитал ${up ? 'вырос' : 'упал'} на ${short(Math.abs(yg.dl))} ₽${pct != null ? ` (${up ? '+' : '−'}${Math.abs(pct).toFixed(0)}%)` : ''}${yg.pct > 0 ? `. Проценты дали ${short(yg.pct)} ₽` : ''}`, 'Как посчитано',
       `Период ${fmtDate(yg.from)} → ${fmtDate(yg.to)}. Изменение суммы по каждому снимку разложено на три части: проценты по условиям вкладов (${yg.pct >= 0 ? '+' : '−'}${short(Math.abs(yg.pct))} ₽), курсы валют (${yg.fx >= 0 ? '+' : '−'}${short(Math.abs(yg.fx))} ₽) и остальное: пополнения, снятия, колебания крипты (${yg.other >= 0 ? '+' : '−'}${short(Math.abs(yg.other))} ₽). «Остальное» не доход: сюда попадает то, что ты сам доложил или снял.`);
   }
-  if (rk.top && rk.top.s > 30) vc('w', `${rk.top.s.toFixed(0)}% всех денег лежит в одном месте: ${esc(rk.top.w)}`, 'Почему важно', `Доля места в общей сумме в рублях. Если с этим банком что-то случится, под удар попадёт именно эта часть.${/кз_|kz/i.test(rk.top.w) ? '' : ' Страховка АСВ покрывает до 1,4 млн ₽ на банк.'}`);
+  if (rk.top && rk.top.s > 30) vc('w', `${rk.top.s.toFixed(0)}% всех денег в одном банке: ${esc(rk.top.w)}`, 'Почему важно', `Доля банка (все его вклады и счета вместе) в общей сумме в рублях. Если с этим банком что-то случится, под удар попадёт именно эта часть.${/кз_|kz/i.test(rk.top.w) ? '' : ' Страховка АСВ покрывает до 1,4 млн ₽ на банк.'}`);
   if (rk.cur[1][1] > 40 && T) vc('w', `${rk.cur[1][1].toFixed(0)}% денег в тенге: ослабление тенге на 5% съест около ${short(T * rk.cur[1][1] / 100 * 0.05)} ₽`, 'Как посчитано', `Доля тенге в капитале, умноженная на 5%. Это пример, а не прогноз.`);
   if (rk.crypto > 5) vc('w', `Крипта — ${rk.crypto.toFixed(0)}% капитала`, 'Почему важно', 'Сумма мест типа «крипта» относительно всего капитала в рублях. Цена крипты скачет сильнее, чем по вкладам.');
   if (tx.free && tx.inc > 0) { const tp = tx.inc / tx.free * 100; vc(tp >= 80 ? 'w' : 'g', tp >= 100 ? `Проценты по вкладам РФ за ${tx.y} выше необлагаемой суммы: будет налог` : `Налог с процентов за ${tx.y}: использовано ${tp.toFixed(0)}% необлагаемой суммы`, 'Как посчитано', `Оценка процентов по рублёвым вкладам за год: ${fmt(tx.inc, 'RUB')}. Необлагаемая сумма — 1 млн ₽ × ключевая ставка ${String(tx.key).replace('.', ',')}% = ${fmt(tx.free, 'RUB')}.`); }
