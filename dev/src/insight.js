@@ -64,7 +64,7 @@ function fxChips() {
   const wasK = ago ? (ago.rubKzt ? 1 / ago.rubKzt : ago.kzt) : 0;
   return `<div class="row wrap" style="gap:8px;margin:2px 0 14px">${[`$ <b>${nf2.format(r.USD)} ₽</b> ${ch(r.USD, ago && ago.usd)}`, `₽ <b>${nf2.format(1 / r.KZT)} ₸</b> ${ch(1 / r.KZT, wasK && 1 / wasK)}`, k.key ? `ключевая ЦБ <b>${String(k.key).replace('.', ',')}%</b>` : '', k.base ? `базовая НБ РК <b>${String(k.base).replace('.', ',')}%</b>` : ''].filter(Boolean).map(x => `<span class="chip" style="cursor:default">${x}</span>`).join('')}${P && P.updated ? `<span class="sm mut" style="align-self:center">обновлено ${fmtDate(P.updated.slice(0, 10))}</span>` : ''}</div>`;
 }
-function insightCards() {
+function insightCards(mode) {
   const w = whyChanged(), todo = todoList(), tx = taxInfo(), rk = riskInfo(), mx = w ? Math.max(Math.abs(w.fx), Math.abs(w.pct), Math.abs(w.other), 1) : 1;
   const bar = (l, v, c) => `<div class="row" style="gap:10px;margin:6px 0"><span class="sm" style="flex:0 0 38%">${l}</span><div class="grow" style="height:8px;background:var(--line);border-radius:4px;position:relative;overflow:hidden"><div style="position:absolute;${v >= 0 ? 'left:50%' : 'right:50%'};width:${Math.abs(v) / mx * 50}%;top:0;bottom:0;background:${v >= 0 ? c : 'var(--bad)'};border-radius:4px"></div></div><b class="money sm" style="flex:0 0 auto;min-width:84px;text-align:right">${v >= 0 ? '+' : '−'}${fmt(Math.abs(v), 'RUB')}</b></div>`;
   const why = w ? `<div class="card"><div class="row" style="margin-bottom:4px"><h3 class="grow">Почему изменилось</h3><span class="sm mut">${fmtDate(w.d1)} → ${fmtDate(w.d2)}</span></div>
@@ -90,6 +90,7 @@ function insightCards() {
     <div class="ygbar">${pos.map(([k, l, c]) => `<div style="flex:${yg[k] / sp};background:${c}" title="${l}"></div>`).join('')}</div>
     <div class="row wrap sm" style="gap:14px;margin-top:8px">${parts.map(([k, l, c]) => `<span><i class="lgd" style="background:${yg[k] >= 0 ? c : 'var(--bad)'}"></i>${l} <b class="money" style="color:${yg[k] >= 0 ? 'var(--tx)' : 'var(--bad)'}">${yg[k] >= 0 ? '+' : '−'}${short(Math.abs(yg[k]))}</b></span>`).join('')}</div></div>`; }
   const td2 = `<div class="card"><div class="row" style="margin-bottom:10px"><h3 class="grow">Что сделать</h3>${todo.length ? `<span class="tag">${todo.length}</span>` : ''}</div><div class="col" style="gap:8px">${todo.length ? todo.slice(0, S.tdAll ? 50 : 6).map(x => `<div class="act act-${x.sev || 'n'}" ${x.snap ? `data-a="snap" data-id="${x.snap}"` : `data-a="editPos" data-id="${x.a}"`}><span class="act-e">${x.e || '•'}</span><div class="grow">${MW(x.t)}</div></div>`).join('') + (todo.length > 6 && !S.tdAll ? `<button class="btn sm" data-a="tdall">Ещё ${todo.length - 6}</button>` : '') : '<div class="act act-g"><span class="act-e">✅</span><div class="grow"><b>Всё в порядке</b><div class="sm mut">ничего не закрывается в ближайшие 3 недели, деньги работают</div></div></div>'}</div></div>`;
+  if (mode === 'todo') return td2;
   return `<div class="grid g2 hm-grid" style="margin-bottom:14px">${td2}<div class="col" style="gap:14px">${ygc}${why || ''}</div></div><div style="margin-bottom:14px">${risk}</div>`;
 }
 
@@ -112,10 +113,22 @@ function conclusions() {
   if (w && Math.abs(w.dl) > 0) vc('n', `С ${fmtDate(w.d1)} по ${fmtDate(w.d2)} капитал ${w.dl >= 0 ? 'вырос' : 'упал'} на ${short(Math.abs(w.dl))} ₽`, 'Из чего сложилось', `Проценты ${w.pct >= 0 ? '+' : '−'}${short(Math.abs(w.pct))} ₽, курсы ${w.fx >= 0 ? '+' : '−'}${short(Math.abs(w.fx))} ₽, остальное ${w.other >= 0 ? '+' : '−'}${short(Math.abs(w.other))} ₽ (пополнения, снятия, рынок).${w.mv.length ? ' Больше всего изменились: ' + w.mv.slice(0, 3).map(x => esc(x.p.where)).join(', ') + '.' : ''}`);
   return L;
 }
+function topConclusions(n) {
+  const L = conclusions().filter(c => c.more !== 'Что сделать').slice(0, n);
+  return L.length ? `<div class="col" style="gap:10px">${L.map(c => `<details class="vc vc-${c.sev}"><summary><div class="vbig">${c.big}</div><span class="vmore">${c.more} ›</span></summary><div class="vd sm">${c.det}</div></details>`).join('')}</div>` : '<div class="card empty"><p>Выводы появятся, когда накопится хотя бы пара снимков.</p></div>';
+}
+function chartsBlock() {
+  return `<div class="grid g2" style="margin-top:14px">
+    <div class="card"><div class="row wrap" style="margin-bottom:8px"><h3 class="grow">Динамика капитала</h3><button class="chip ${S.fc ? 'on' : ''}" data-a="fc">Прогноз</button><div class="seg">${[['6', '6м'], ['12', '12м'], ['all', 'Всё']].map(([k, l]) => `<button class="${S.range === k ? 'on' : ''}" data-a="range" data-id="${k}">${l}</button>`).join('')}</div></div>
+      <div style="position:relative" id="cw">${lineChart(series())}</div>${S.fc ? '<div class="sm mut" style="margin-top:6px">Прогноз: простые проценты по ставке до даты закрытия, без новых пополнений.</div>' : ''}</div>
+    <div class="card"><div class="row" style="margin-bottom:12px"><h3 class="grow">Структура</h3><div class="seg">${[['type', 'Тип'], ['cur', 'Валюта'], ['place', 'Место']].map(([k, l]) => `<button class="${S.dmode === k ? 'on' : ''}" data-a="dmode" data-id="${k}">${l}</button>`).join('')}</div></div>${donut()}</div></div>
+  <div class="grid g2" style="margin-top:14px">${goalCard()}<div class="card"><h3 style="margin-bottom:8px">Прирост по годам</h3>${yearBars()}</div></div>
+  <div class="card" style="margin-top:14px"><div class="row" style="margin-bottom:10px"><h3 class="grow">Календарь закрытий</h3><span class="mut sm">полгода вперёд</span></div>${heatmap()}</div>`;
+}
 function viewConclusions() {
   const L = conclusions();
   const feed = L.length ? L.map(c => `<details class="vc vc-${c.sev}"><summary><div class="vbig">${c.big}</div><span class="vmore">${c.more} ›</span></summary><div class="vd sm">${c.det}</div></details>`).join('') : '<div class="card empty"><p>Выводов пока нет: нужно хотя бы два снимка сумм. Добавь места или импортируй Excel.</p></div>';
-  return `<p class="mut sm" style="margin:0 0 12px">Главное о твоих деньгах одной фразой. Нажми на карточку, чтобы увидеть, как посчитано.</p><div class="col" style="gap:10px">${feed}</div>
+  return `<p class="mut sm" style="margin:0 0 12px">Главное о твоих деньгах одной фразой. Нажми на карточку, чтобы увидеть, как посчитано.</p><div class="col" style="gap:10px">${feed}</div>${chartsBlock()}
   <button class="fold" data-a="ancalc">${S.ancalc ? 'Скрыть расчёты из Excel' : 'Расчёты из Excel: «А если бы в банк», по годам, банки, налог ›'}</button>${S.ancalc ? viewAn() : ''}`;
 }
 

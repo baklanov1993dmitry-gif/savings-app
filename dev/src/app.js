@@ -161,7 +161,8 @@ document.addEventListener('visibilitychange', () => {
 
 /* ===== каркас ===== */
 const TABS = [['home', 'Обзор', 'home'], ['money', 'Деньги', 'grid'], ['flow', 'Движение', 'swap'], ['dates', 'Даты', 'cal'], ['notes', 'Заметки', 'note'], ['an', 'Выводы', 'chart'], ['set', 'Настройки', 'gear']];
-const TITLES = { home: 'Обзор', money: 'Деньги', flow: 'Движение средств', dates: 'Ближайшие даты', notes: 'Заметки', an: 'Выводы', set: 'Настройки' };
+const NAV5 = [['home', 'Обзор', 'home'], ['money', 'Деньги', 'grid'], ['flow', 'Движение', 'swap'], ['an', 'Выводы', 'chart'], ['more', 'Ещё', 'gear']], MORE = ['dates', 'notes', 'set'];
+const TITLES = { more: 'Ещё', home: 'Обзор', money: 'Деньги', flow: 'Движение средств', dates: 'Ближайшие даты', notes: 'Заметки', an: 'Выводы', set: 'Настройки' };
 function startApp() {
   migrate(S.data); if (S.data.settings.fx && S.data.settings.fx.mig && !S.data.settings.fx.migUser) S.data.settings.fx.mig = false; S.fresh = true; S.tab = 'home'; bumpIdle(); render(); Sync.init(); FX.fetch().finally(() => FX.auto());
   if (S.recoveryFlow) { S.recoveryFlow = false; openChangePw(true); }
@@ -172,17 +173,17 @@ function render() {
   $app.className = d.settings.hide ? 'hide' : '';
   const urgent = events().filter(e => e.k === 'close' && e.n <= 7).length;
   if (S.tab === 'board' || S.tab === 'pos') { S.mm = S.tab === 'board' ? 'table' : 'cards'; S.tab = 'money'; }
-  const view = { home: viewHome, money: viewMoney, flow: viewFlows, dates: viewDates, notes: viewNotes, an: viewConclusions, set: viewSet }[S.tab]();
+  const view = { home: viewHome, money: viewMoney, flow: viewFlows, dates: viewDates, notes: viewNotes, an: viewConclusions, set: viewSet, more: viewMore }[S.tab]();
   $app.innerHTML = `<div class="shell"><aside class="side"><div class="brand">${ic('lock')} Накопления</div>
     ${TABS.map(([k, t, i]) => `<button class="nv ${S.tab === k ? 'on' : ''}" data-a="tab" data-id="${k}">${ic(i)}${t}${k === 'dates' && urgent ? `<span class="tag bad" style="margin-left:auto">${urgent}</span>` : ''}</button>`).join('')}
     <div class="grow"></div><button class="nv" data-a="palette">${ic('search')}Поиск <kbd style="margin-left:auto">Ctrl K</kbd></button></aside>
     <main class="main ${full ? 'fresh' : ''} ${S.tab === 'money' && S.mm === 'table' ? 'wide' : ''}">${S.memOnly ? '<div class="banner">Хранилище браузера недоступно — данные живут только до закрытия вкладки. Сделай экспорт копии в Настройках.</div>' : ''}
-    <div class="top"><h1>${TITLES[S.tab]}</h1><span class="tag" title="версия приложения">v4.20 · 08.11</span>
+    <div class="top"><h1>${TITLES[S.tab]}</h1><span class="tag" title="версия приложения">v4.21 · 08.11</span>
       <button class="ic" data-a="palette" title="Поиск и команды (Ctrl+K)">${ic('search')}</button>
       <button class="ic" data-a="hide" title="Скрыть суммы">${ic(d.settings.hide ? 'eyeoff' : 'eye')}</button>
       <button class="ic" data-a="lock" title="Заблокировать">${ic('lock')}</button></div>
     ${view}</main>
-    <nav class="nav">${TABS.map(([k, t, i]) => `<button class="${S.tab === k ? 'on' : ''}" data-a="tab" data-id="${k}">${ic(i)}${t}</button>`).join('')}</nav></div>`;
+    <nav class="nav">${NAV5.map(([k, t, i]) => `<button class="${S.tab === k || (k === 'more' && MORE.includes(S.tab)) ? 'on' : ''}" data-a="tab" data-id="${k}">${ic(i)}${t}</button>`).join('')}</nav></div>`;
   bindCharts(); if (full) countUp($app);
   S.fresh = false; S.rc = false; animNow = false;
 }
@@ -210,16 +211,14 @@ function viewHome() {
     <div class="row wrap sm" style="gap:6px 12px">${dS != null ? `<span class="${dS >= 0 ? 'up' : 'dn'}"><b>${dS >= 0 ? '▲' : '▼'} <span class="money">${short(Math.abs(dS))}</span></b> с ${fmtDate(dPrev)}</span>` : ''}${dY != null ? `<span class="mut"><span class="money">${sgn(dY)}</span> за год (${dY >= 0 ? '+' : ''}${(dY / yAgo * 100).toFixed(0)}%)</span>` : ''}</div>
     <div class="sm mut" style="margin-top:4px">${rt}</div></div><div class="h-chart">${area}</div></div>
     <div class="ctiles">${kpi}</div></div>
-  <div style="margin-top:14px">${insightCards()}</div>
-  <div class="grid g2 hm-grid" style="margin-top:14px">${ratesCard()}${realtyCard()}</div>
-  <div class="grid g2" style="margin-top:0">
-    <div class="card"><div class="row wrap" style="margin-bottom:8px"><h3 class="grow">Динамика капитала</h3><button class="chip ${S.fc ? 'on' : ''}" data-a="fc">Прогноз</button><div class="seg">${[['6', '6м'], ['12', '12м'], ['all', 'Всё']].map(([k, l]) => `<button class="${S.range === k ? 'on' : ''}" data-a="range" data-id="${k}">${l}</button>`).join('')}</div></div>
-      <div style="position:relative" id="cw">${lineChart(series())}</div>${S.fc ? '<div class="sm mut" style="margin-top:6px">Прогноз: простые проценты по ставке до даты закрытия, без новых пополнений.</div>' : ''}</div>
-    <div class="card"><div class="row" style="margin-bottom:12px"><h3 class="grow">Структура</h3><div class="seg">${[['type', 'Тип'], ['cur', 'Валюта'], ['place', 'Место']].map(([k, l]) => `<button class="${S.dmode === k ? 'on' : ''}" data-a="dmode" data-id="${k}">${l}</button>`).join('')}</div></div>${donut()}</div></div>
-  <div class="grid g2" style="margin-top:14px">${goalCard()}<div class="card"><h3 style="margin-bottom:8px">Прирост по годам</h3>${yearBars()}</div></div>
-  <div class="card" style="margin-top:14px"><div class="row" style="margin-bottom:10px"><h3 class="grow">Календарь закрытий</h3><span class="mut sm">полгода вперёд</span></div>${heatmap()}</div>
-  <div class="sect"><h2>Ближайшие даты</h2><button class="btn sm" data-a="tab" data-id="dates">Все</button></div>
-  ${ev.length ? ev.map(evItem).join('') : '<div class="card empty">Дат пока нет — укажи «забрать до» в карточке места</div>'}`;
+  <div style="margin-top:14px">${insightCards('todo')}</div>
+  <div class="sect"><h2>Главное</h2><button class="btn sm" data-a="tab" data-id="an">Все выводы</button></div>
+  ${topConclusions(3)}
+  <div class="grid g2 hm-grid" style="margin-top:14px">${ratesCard()}${realtyCard()}</div>`;
+}
+function viewMore() {
+  const urgent = events().filter(e => e.k === 'close' && e.n <= 7).length;
+  return `<div class="col" style="gap:10px">${[['dates', 'Даты', 'Календарь закрытий и ближайшие сроки', 'cal'], ['notes', 'Заметки', 'Записи по местам и деньгам', 'note'], ['set', 'Настройки', 'Импорт, экспорт, синхронизация, безопасность', 'gear']].map(([k, t, d, i]) => `<button class="card row" style="gap:12px;text-align:left;cursor:pointer" data-a="tab" data-id="${k}">${ic(i)}<div class="grow"><b>${t}</b><div class="sm mut">${d}</div></div>${k === 'dates' && urgent ? `<span class="tag bad">${urgent}</span>` : ''}</button>`).join('')}</div>`;
 }
 
 /* ===== Места ===== */
