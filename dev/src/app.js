@@ -162,7 +162,7 @@ document.addEventListener('visibilitychange', () => {
 /* ===== каркас ===== */
 const TABS = [['home', 'Обзор', 'home'], ['money', 'Деньги', 'grid'], ['flow', 'Движение', 'swap'], ['dates', 'Даты', 'cal'], ['notes', 'Заметки', 'note'], ['an', 'Выводы', 'chart'], ['set', 'Настройки', 'gear']];
 const NAV5 = [['home', 'Обзор', 'home'], ['money', 'Деньги', 'grid'], ['flow', 'Движение', 'swap'], ['an', 'Выводы', 'chart'], ['more', 'Ещё', 'gear']], MORE = ['dates', 'notes', 'set'];
-const TITLES = { more: 'Ещё', home: 'Обзор', money: 'Деньги', flow: 'Движение средств', dates: 'Ближайшие даты', notes: 'Заметки', an: 'Выводы', set: 'Настройки' };
+const TITLES = { more: 'Ещё', home: 'Обзор', money: 'Деньги', flow: 'Движение', dates: 'Ближайшие даты', notes: 'Заметки', an: 'Выводы', set: 'Настройки' };
 function startApp() {
   migrate(S.data); if (S.data.settings.fx && S.data.settings.fx.mig && !S.data.settings.fx.migUser) S.data.settings.fx.mig = false; S.fresh = true; S.tab = 'home'; bumpIdle(); render(); Sync.init(); FX.fetch().finally(() => FX.auto());
   if (S.recoveryFlow) { S.recoveryFlow = false; openChangePw(true); }
@@ -178,7 +178,7 @@ function render() {
     ${TABS.map(([k, t, i]) => `<button class="nv ${S.tab === k ? 'on' : ''}" data-a="tab" data-id="${k}">${ic(i)}${t}${k === 'dates' && urgent ? `<span class="tag bad" style="margin-left:auto">${urgent}</span>` : ''}</button>`).join('')}
     <div class="grow"></div><button class="nv" data-a="palette">${ic('search')}Поиск <kbd style="margin-left:auto">Ctrl K</kbd></button></aside>
     <main class="main ${full ? 'fresh' : ''} ${S.tab === 'money' && S.mm === 'table' ? 'wide' : ''}">${S.memOnly ? '<div class="banner">Хранилище браузера недоступно — данные живут только до закрытия вкладки. Сделай экспорт копии в Настройках.</div>' : ''}
-    <div class="top"><h1>${TITLES[S.tab]}</h1><span class="tag" title="версия приложения">v4.24 · 08.11</span>
+    <div class="top"><h1>${TITLES[S.tab]}</h1><span class="tag" title="версия приложения">v4.25 · 09.11</span>
       <button class="ic" data-a="palette" title="Поиск и команды (Ctrl+K)">${ic('search')}</button>
       <button class="ic" data-a="hide" title="Скрыть суммы">${ic(d.settings.hide ? 'eyeoff' : 'eye')}</button>
       <button class="ic" data-a="lock" title="Заблокировать">${ic('lock')}</button></div>
@@ -471,6 +471,7 @@ async function actions(a, el) {
     case 'fedit': flEdit((S.data.flows || []).find(f => f.id === id)); break;
     case 'fapply': { const f = S.data.flows.find(z => z.id === id); if (!f) break; flApply(f); await persist(); render(); break; }
     case 'flc': S.fl.cur = id; render(); break;
+    case 'flopen': S.fl.open = !S.fl.open; break;
     case 'flt': S.fl.t = id; render(); break;
     case 'fdis': S.fl.dis = !S.fl.dis; render(); break;
     case 'mm': S.mm = id; S.q = ''; S.filter = 'Все'; S.fresh = false; render(); break;
@@ -540,6 +541,11 @@ document.addEventListener('click', e => {
   if (m && S.data && S.data.settings.hide) { e.stopPropagation(); e.preventDefault(); m.classList.add('rv'); setTimeout(() => m.classList.remove('rv'), 3500); return; }
   const el = e.target.closest('[data-a]'); if (el && S.data) actions(el.dataset.a, el);
 }, true);
+document.addEventListener('change', e => {
+  const k = e.target.dataset.pc; if (!k || !S.data) return; const st = S.data.settings, o = st[k] = st[k] || {}, v = num(e.target.value);
+  if (e.target.value.trim() === '') delete o[e.target.dataset.id]; else if (v != null && v >= 0) o[e.target.dataset.id] = v; else return toast('Введи число');
+  persist().then(() => render());
+});
 document.addEventListener('input', e => {
   const i = e.target.dataset.i; if (!i || !S.data) return;
   if (i === 'flp') { S.fl.p = e.target.value; render(); }

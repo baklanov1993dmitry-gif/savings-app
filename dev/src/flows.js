@@ -76,13 +76,13 @@ function flSum(L) {
 function viewFlows() {
   const L = flFiltered();
   const pl = flPlaces();
-  return `<p class="mut sm" style="margin:0 0 10px">Летопись: как менялись суммы в местах. «Изменение суммы» программа не называет пополнением: это мог быть курс, рынок или твой взнос. Если знаешь, что это было, открой запись и выбери тип.</p><div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:10px"><button class="btn pri" data-a="fnew">+ Перевод</button>
+  return `${viewPeriods()}<details class="oldfl" style="margin-top:16px"${S.fl.open ? ' open' : ''}><summary class="fold" data-a="flopen">Старые записи движения (из Excel и вручную)</summary><p class="mut sm" style="margin:10px 0">Летопись: как менялись суммы в местах. «Изменение суммы» программа не называет пополнением: это мог быть курс, рынок или твой взнос. Если знаешь, что это было, открой запись и выбери тип.</p><div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:10px"><button class="btn pri" data-a="fnew">+ Перевод</button>
     ${[['', 'Все'], ['in', 'Пополнения'], ['out', 'Снятия'], ['move', 'Переводы'], ['chg', 'Изменения']].map(([k, t]) => `<button class="chip ${S.fl.t === k ? 'on' : ''}" data-a="flt" data-id="${k}">${t}</button>`).join('')}
     ${['', 'RUB', 'KZT', 'USD'].map(c => `<button class="chip ${S.fl.cur === c ? 'on' : ''}" data-a="flc" data-id="${c}" ${c ? `style="--cc:var(--cc-${c})"` : ''}>${c ? SYM[c] : 'Все валюты'}</button>`).join('')}
     <select class="inp" data-i="flp" style="max-width:220px"><option value="">Все места</option>${pl.map(x => `<option ${S.fl.p === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select>
     <input class="inp grow" data-i="flq" placeholder="Поиск по местам и заметкам" value="${esc(S.fl.q)}" style="min-width:140px"></div>
   ${(() => { const n = (S.data.flows || []).filter(flDis).length; return n || S.fl.dis ? `<button class="fold" data-a="fdis">${S.fl.dis ? '← К основным записям' : 'Спорные: ' + n + ' · программа не уверена, куда ушли деньги · разобрать'}</button>` : ''; })()}
-  ${flSum(L)}<div id="fllist">${flList()}</div>`;
+  ${flSum(L)}<div id="fllist">${flList()}</div></details>`;
 }
 function flEdit(f) {
   const isNew = !f, d = f || { id: uid(), d: todayISO(), from: '', to: '', amt: '', cur: 'RUB', note: '', applied: false };
@@ -119,4 +119,34 @@ function flApply(f) {
   };
   go(f.from, -1); go(f.to, 1); f.applied = true;
   toast(done.length ? 'Суммы обновлены: ' + done.join(', ') + (miss.length ? '. Не нашёл: ' + miss.join(', ') : '') : 'Не нашёл места в этой валюте — суммы не менялись', 4200);
+}
+
+/* ===== Периоды между снимками: зп − траты + курс + проценты + рынок + невязка ===== */
+function periods() {
+  const ds = snapDates(), st = S.data.settings, sal = st.salary || {}, spd = st.spend || {}, L = [];
+  for (let k = 1; k < ds.length; k++) {
+    const d1 = ds[k - 1], d2 = ds[k], r = decomp(d1, d2); let mk = 0;
+    for (const p of inTot()) if (/крипт|инвест|акци/i.test(p.type || '')) mk += (lastAmt(p, d2) - lastAmt(p, d1)) * rateOf(p.cur, d2);
+    const s = sal[d2] != null ? +sal[d2] : null, t = spd[d2] != null ? +spd[d2] : null;
+    const known = s != null && t != null, res = known ? r.other - (s - t) - mk : null, base = totalAt(d1) || 1, lim = Math.max(10000, base * 0.01);
+    L.push({ d1, d2, ...r, mk, s, t, res, ok: known ? Math.abs(res) <= lim : null, lim, own: known ? s - t : null, earn: r.fx + r.pct + mk });
+  }
+  return L.reverse();
+}
+function periodCard(P) {
+  const sg = v => (v >= 0 ? '+' : '−') + short(Math.abs(v)), row = (l, v, c = '') => `<span class="mut">${l}</span><span class="money ${c}">${v}</span>`;
+  const st = P.ok == null ? `<span class="tag">впиши зп и траты</span>` : P.ok ? `<span class="tag" style="color:var(--acc)">сошлось</span>` : `<span class="tag bad">не сошлось на ${short(Math.abs(P.res))}</span>`;
+  const inp = (k, v, ph) => `<input class="inp pin-in" inputmode="decimal" data-pc="${k}" data-id="${P.d2}" value="${v == null ? '' : v}" placeholder="${ph}">`;
+  return `<div class="card per ${P.ok === false ? 'per-bad' : ''}"><div class="row" style="align-items:baseline;gap:8px"><b class="grow">${fmtDate(P.d1)} → ${fmtDate(P.d2)}</b>${st}</div>
+  <div class="money" style="font-size:22px;font-weight:700;margin:4px 0 8px;color:var(--${P.dl >= 0 ? 'acc' : 'bad'})">${sg(P.dl)} ₽</div>
+  <div class="pgrid"><span class="mut">Зарплата</span>${inp('salary', P.s, '0')}<span class="mut">Траты</span>${inp('spend', P.t, '0')}
+  ${row('Проценты', sg(P.pct))}${row('Курсы ₸ и $', sg(P.fx))}${P.mk ? row('Крипта и инвестиции', sg(P.mk)) : ''}${P.res != null ? row('Не объяснено', sg(P.res), P.ok ? '' : 'dn') : ''}</div>
+  ${P.own != null ? `<div class="sm" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--line)">Отложил сам: <b class="money">${sg(P.own)} ₽</b> · деньги заработали: <b class="money">${sg(P.earn)} ₽</b></div>` : ''}</div>`;
+}
+function viewPeriods() {
+  const L = periods(); if (!L.length) return '<div class="card empty"><p>Нужно хотя бы два снимка, чтобы посчитать период.</p></div>';
+  const done = L.filter(p => p.own != null), own = done.reduce((s, p) => s + p.own, 0), earn = done.reduce((s, p) => s + p.earn, 0);
+  return `${done.length ? `<div class="card" style="margin-bottom:10px"><div class="sm mut">За ${done.length} период${done.length % 10 === 1 && done.length % 100 !== 11 ? '' : done.length % 10 >= 2 && done.length % 10 <= 4 && (done.length % 100 < 10 || done.length % 100 >= 20) ? 'а' : 'ов'} с заполненной зп</div><div class="row wrap" style="gap:18px;margin-top:4px"><div><div class="sm mut">Отложил сам</div><b class="money" style="font-size:20px">${short(own)} ₽</b></div><div><div class="sm mut">Деньги заработали</div><b class="money" style="font-size:20px">${short(earn)} ₽</b></div></div></div>` : ''}
+  <p class="mut sm" style="margin:0 0 10px">Каждый период — между двумя снимками. Зарплата пишется в снимок, сделанный в день её прихода. Траты — за даты периода. «Не объяснено» до 1% капитала (минимум 10 тыс ₽) считается нормой.</p>
+  <div class="col" style="gap:10px">${L.map(periodCard).join('')}</div>`;
 }
