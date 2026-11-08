@@ -1654,6 +1654,20 @@ function flList() {
   }
   return h;
 }
+/** итог по выбранному месту: сколько внёс/вывел, в рублях по курсу на дату перевода, средний курс, сколько сейчас */
+function flSum(L) {
+  const P = S.fl.p; if (!P) return L.length ? '<div class="sm mut" style="margin:0 0 8px">Выбери место в списке — покажу, сколько туда вложено в рублях и по какому среднему курсу.</div>' : '';
+  const raw = (c, d) => c === 'RUB' ? 1 : (d ? FX.at(c, d) : S.data.settings.rates[c]) || 0, by = {};
+  for (const f of L) { const k = f.cur, o = by[k] = by[k] || { inA: 0, inR: 0, outA: 0, outR: 0 }, r = raw(k, f.d); if (f.to === P) { o.inA += f.amt; o.inR += f.amt * r; } if (f.from === P) { o.outA += f.amt; o.outR += f.amt * r; } }
+  const ps = S.data.positions.filter(p => p.where === P); let nowR = 0; ps.forEach(p => nowR += lastAmt(p) * raw(p.cur));
+  const nowTxt = ps.map(p => fmt(lastAmt(p), p.cur)).join(' + ');
+  const rows = Object.entries(by).map(([c, o]) => { const net = o.inA - o.outA, netR = o.inR - o.outR, avg = c !== 'RUB' && o.inA ? o.inR / o.inA : 0;
+    return `<div class="pkv"><span>Внесено</span><span>${fmt(o.inA, c)}${c !== 'RUB' ? ` · ≈ ${fmt(o.inR, 'RUB')}` : ''}</span></div>${avg ? `<div class="pkv"><span>Средний курс пополнений</span><span>${nf2.format(avg)} ₽ за ${SYM[c]}</span></div>` : ''}${o.outA ? `<div class="pkv"><span>Выведено</span><span>${fmt(o.outA, c)}${c !== 'RUB' ? ` · ≈ ${fmt(o.outR, 'RUB')}` : ''}</span></div>` : ''}<div class="pkv"><span><b>Вложено чистыми</b></span><span><b>${fmt(net, c)}${c !== 'RUB' ? ` · ≈ ${fmt(netR, 'RUB')}` : ''}</b></span></div>`; }).join('');
+  const netR = Object.values(by).reduce((s, o) => s + o.inR - o.outR, 0), res = nowR - netR;
+  return `<div class="card" style="margin:0 0 10px"><div class="pt">${esc(P)}: сколько вложено</div>${rows || '<div class="sm mut">По этому месту нет записей с учётом фильтров.</div>'}
+  ${ps.length ? `<div class="pkv"><span>Сейчас</span><span>${nowTxt}${ps.some(p => p.cur !== 'RUB') ? ` · ≈ ${fmt(nowR, 'RUB')}` : ''}</span></div>${rows ? `<div class="pkv"><span><b>Результат в рублях</b></span><span class="${res >= 0 ? 'pl' : 'mi'}"><b>${res >= 0 ? '+' : '−'}${fmt(Math.abs(res), 'RUB')}${netR > 0 ? ` (${res >= 0 ? '+' : '−'}${Math.abs(res / netR * 100).toFixed(1).replace('.', ',')}%)` : ''}</b></span></div>` : ''}` : ''}
+  <div class="sm mut" style="margin-top:6px">Рубли — по курсу ЦБ на дату каждого перевода, без поправки −3 ₽. Спорные записи не учтены${S.fl.t || S.fl.cur || S.fl.q ? '; учтены только записи под текущими фильтрами' : ''}.</div></div>`;
+}
 function viewFlows() {
   const L = flFiltered();
   const pl = flPlaces();
@@ -1663,7 +1677,7 @@ function viewFlows() {
     <select class="inp" data-i="flp" style="max-width:220px"><option value="">Все места</option>${pl.map(x => `<option ${S.fl.p === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select>
     <input class="inp grow" data-i="flq" placeholder="Поиск по местам и заметкам" value="${esc(S.fl.q)}" style="min-width:140px"></div>
   ${(() => { const n = (S.data.flows || []).filter(flDis).length; return n || S.fl.dis ? `<button class="fold" data-a="fdis">${S.fl.dis ? '← К основным записям' : 'Спорные: ' + n + ' · программа не уверена, куда ушли деньги · разобрать'}</button>` : ''; })()}
-  <div id="fllist">${flList()}</div>`;
+  ${flSum(L)}<div id="fllist">${flList()}</div>`;
 }
 function flEdit(f) {
   const isNew = !f, d = f || { id: uid(), d: todayISO(), from: '', to: '', amt: '', cur: 'RUB', note: '', applied: false };
@@ -1972,7 +1986,7 @@ function render() {
     ${TABS.map(([k, t, i]) => `<button class="nv ${S.tab === k ? 'on' : ''}" data-a="tab" data-id="${k}">${ic(i)}${t}${k === 'dates' && urgent ? `<span class="tag bad" style="margin-left:auto">${urgent}</span>` : ''}</button>`).join('')}
     <div class="grow"></div><button class="nv" data-a="palette">${ic('search')}Поиск <kbd style="margin-left:auto">Ctrl K</kbd></button></aside>
     <main class="main ${full ? 'fresh' : ''} ${S.tab === 'money' && S.mm === 'table' ? 'wide' : ''}">${S.memOnly ? '<div class="banner">Хранилище браузера недоступно — данные живут только до закрытия вкладки. Сделай экспорт копии в Настройках.</div>' : ''}
-    <div class="top"><h1>${TITLES[S.tab]}</h1><span class="tag" title="версия приложения">v4.17 · 08.11</span>
+    <div class="top"><h1>${TITLES[S.tab]}</h1><span class="tag" title="версия приложения">v4.18 · 08.11</span>
       <button class="ic" data-a="palette" title="Поиск и команды (Ctrl+K)">${ic('search')}</button>
       <button class="ic" data-a="hide" title="Скрыть суммы">${ic(d.settings.hide ? 'eyeoff' : 'eye')}</button>
       <button class="ic" data-a="lock" title="Заблокировать">${ic('lock')}</button></div>
@@ -2208,7 +2222,7 @@ function viewSet() {
     <button class="btn" data-a="clrpos">Очистить все места</button>
     <button class="btn" data-a="demo">Добавить демо-данные</button>
     <div class="sm mut">Excel читается прямо в браузере и никуда не отправляется. Копия — это зашифрованный файл: без пароля или ключа восстановления это набор случайных байт.</div></div>
-  <div class="card col" style="grid-column:1/-1"><h3>Как это защищено <span class="tag">v4.17</span></h3><div class="sm mut">Мастер-пароль → PBKDF2‑SHA256, ${Vault.ITER_PW.toLocaleString('ru-RU')} итераций → ключ, которым открывается случайный ключ данных. Данные шифруются AES‑256‑GCM (с проверкой целостности). Пароль не хранится. В браузере лежит только шифротекст. Лимит попыток и задержка защищают от случайного подбора на устройстве, а от кражи файла защищает сила пароля.</div></div></div>`;
+  <div class="card col" style="grid-column:1/-1"><h3>Как это защищено <span class="tag">v4.18</span></h3><div class="sm mut">Мастер-пароль → PBKDF2‑SHA256, ${Vault.ITER_PW.toLocaleString('ru-RU')} итераций → ключ, которым открывается случайный ключ данных. Данные шифруются AES‑256‑GCM (с проверкой целостности). Пароль не хранится. В браузере лежит только шифротекст. Лимит попыток и задержка защищают от случайного подбора на устройстве, а от кражи файла защищает сила пароля.</div></div></div>`;
 }
 function openChangePw(forced) {
   modal(`<h3>${forced ? 'Задай новый мастер-пароль' : 'Смена пароля'}</h3><p class="sm mut">${forced ? 'Ты вошёл по ключу восстановления — старый пароль утерян, поставь новый.' : 'Ключ восстановления остаётся прежним.'}</p><form id="cf" class="col"><input class="inp" id="n1" type="password" placeholder="Новый пароль" autocomplete="new-password"><div class="meter" id="mt">${meterHTML(0)}</div><input class="inp" id="n2" type="password" placeholder="Повтори" autocomplete="new-password"><div class="err" id="er"></div><div class="row" style="justify-content:flex-end">${forced ? '' : '<button type="button" class="btn" data-x="c">Отмена</button>'}<button class="btn pri">Сохранить</button></div></form>`, ov => {
@@ -2316,7 +2330,7 @@ async function doXlsx(f) {
   let found; try { found = parseWorkbook(await f.arrayBuffer()); } catch (e) { closeModal('ovl', true); return toast('Не смог прочитать файл: ' + e.message); }
   closeModal('ovl', true);
   if (!found.length) return toast('Не нашёл знакомых листов («движение средств», «состояние средств», «Мысли»)');
-  modal(`<div class="row" style="margin-bottom:8px"><h3 class="grow">Импорт из Excel <span class="tag">v4.17</span></h3><button class="ic" data-x="c">${ic('x')}</button></div><p class="sm mut">Найдено в файле. Отметь, что добавить (всё добавляется к существующему):</p>
+  modal(`<div class="row" style="margin-bottom:8px"><h3 class="grow">Импорт из Excel <span class="tag">v4.18</span></h3><button class="ic" data-x="c">${ic('x')}</button></div><p class="sm mut">Найдено в файле. Отметь, что добавить (всё добавляется к существующему):</p>
   ${found.map((x, i) => `<label class="card row" style="align-items:flex-start;margin-bottom:8px"><input type="checkbox" data-k="${i}" ${x.positions ? 'data-pos="1"' : ''} ${x.def && x.count ? 'checked' : ''} ${x.count ? '' : 'disabled'}><div><b>${esc(x.title)}</b> <span class="tag">${x.count}</span><div class="sm mut">${esc(x.desc)}</div></div></label>`).join('')}
   ${found.some(f => f.positions && f.positions.some(q => q._cl)) ? `<label class="row sm" style="margin-top:6px;align-items:flex-start"><input type="checkbox" id="autocl" checked><span>Закрыть вклады, которые в последнем столбце пустые, а срок уже вышел — деньги переложены в другие строки (иначе посчитаются дважды). Таких: <b>${found.reduce((s, f) => s + (f.positions ? f.positions.filter(q => q._cl).length : 0), 0)}</b></span></label>` : ''}
   <div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn pri" data-x="go">Импортировать</button></div>`, ov => {

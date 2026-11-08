@@ -57,6 +57,20 @@ function flList() {
   }
   return h;
 }
+/** итог по выбранному месту: сколько внёс/вывел, в рублях по курсу на дату перевода, средний курс, сколько сейчас */
+function flSum(L) {
+  const P = S.fl.p; if (!P) return L.length ? '<div class="sm mut" style="margin:0 0 8px">Выбери место в списке — покажу, сколько туда вложено в рублях и по какому среднему курсу.</div>' : '';
+  const raw = (c, d) => c === 'RUB' ? 1 : (d ? FX.at(c, d) : S.data.settings.rates[c]) || 0, by = {};
+  for (const f of L) { const k = f.cur, o = by[k] = by[k] || { inA: 0, inR: 0, outA: 0, outR: 0 }, r = raw(k, f.d); if (f.to === P) { o.inA += f.amt; o.inR += f.amt * r; } if (f.from === P) { o.outA += f.amt; o.outR += f.amt * r; } }
+  const ps = S.data.positions.filter(p => p.where === P); let nowR = 0; ps.forEach(p => nowR += lastAmt(p) * raw(p.cur));
+  const nowTxt = ps.map(p => fmt(lastAmt(p), p.cur)).join(' + ');
+  const rows = Object.entries(by).map(([c, o]) => { const net = o.inA - o.outA, netR = o.inR - o.outR, avg = c !== 'RUB' && o.inA ? o.inR / o.inA : 0;
+    return `<div class="pkv"><span>Внесено</span><span>${fmt(o.inA, c)}${c !== 'RUB' ? ` · ≈ ${fmt(o.inR, 'RUB')}` : ''}</span></div>${avg ? `<div class="pkv"><span>Средний курс пополнений</span><span>${nf2.format(avg)} ₽ за ${SYM[c]}</span></div>` : ''}${o.outA ? `<div class="pkv"><span>Выведено</span><span>${fmt(o.outA, c)}${c !== 'RUB' ? ` · ≈ ${fmt(o.outR, 'RUB')}` : ''}</span></div>` : ''}<div class="pkv"><span><b>Вложено чистыми</b></span><span><b>${fmt(net, c)}${c !== 'RUB' ? ` · ≈ ${fmt(netR, 'RUB')}` : ''}</b></span></div>`; }).join('');
+  const netR = Object.values(by).reduce((s, o) => s + o.inR - o.outR, 0), res = nowR - netR;
+  return `<div class="card" style="margin:0 0 10px"><div class="pt">${esc(P)}: сколько вложено</div>${rows || '<div class="sm mut">По этому месту нет записей с учётом фильтров.</div>'}
+  ${ps.length ? `<div class="pkv"><span>Сейчас</span><span>${nowTxt}${ps.some(p => p.cur !== 'RUB') ? ` · ≈ ${fmt(nowR, 'RUB')}` : ''}</span></div>${rows ? `<div class="pkv"><span><b>Результат в рублях</b></span><span class="${res >= 0 ? 'pl' : 'mi'}"><b>${res >= 0 ? '+' : '−'}${fmt(Math.abs(res), 'RUB')}${netR > 0 ? ` (${res >= 0 ? '+' : '−'}${Math.abs(res / netR * 100).toFixed(1).replace('.', ',')}%)` : ''}</b></span></div>` : ''}` : ''}
+  <div class="sm mut" style="margin-top:6px">Рубли — по курсу ЦБ на дату каждого перевода, без поправки −3 ₽. Спорные записи не учтены${S.fl.t || S.fl.cur || S.fl.q ? '; учтены только записи под текущими фильтрами' : ''}.</div></div>`;
+}
 function viewFlows() {
   const L = flFiltered();
   const pl = flPlaces();
@@ -66,7 +80,7 @@ function viewFlows() {
     <select class="inp" data-i="flp" style="max-width:220px"><option value="">Все места</option>${pl.map(x => `<option ${S.fl.p === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select>
     <input class="inp grow" data-i="flq" placeholder="Поиск по местам и заметкам" value="${esc(S.fl.q)}" style="min-width:140px"></div>
   ${(() => { const n = (S.data.flows || []).filter(flDis).length; return n || S.fl.dis ? `<button class="fold" data-a="fdis">${S.fl.dis ? '← К основным записям' : 'Спорные: ' + n + ' · программа не уверена, куда ушли деньги · разобрать'}</button>` : ''; })()}
-  <div id="fllist">${flList()}</div>`;
+  ${flSum(L)}<div id="fllist">${flList()}</div>`;
 }
 function flEdit(f) {
   const isNew = !f, d = f || { id: uid(), d: todayISO(), from: '', to: '', amt: '', cur: 'RUB', note: '', applied: false };
