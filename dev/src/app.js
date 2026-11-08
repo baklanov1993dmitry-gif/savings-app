@@ -171,6 +171,7 @@ function render() {
   animNow = S.fresh || S.rc; const full = S.fresh;
   $app.className = d.settings.hide ? 'hide' : '';
   const urgent = events().filter(e => e.k === 'close' && e.n <= 7).length;
+  if (S.tab === 'board' || S.tab === 'pos') { S.mm = S.tab === 'board' ? 'table' : 'cards'; S.tab = 'money'; }
   const view = { home: viewHome, money: viewMoney, flow: viewFlows, dates: viewDates, notes: viewNotes, an: viewConclusions, set: viewSet }[S.tab]();
   $app.innerHTML = `<div class="shell"><aside class="side"><div class="brand">${ic('lock')} Накопления</div>
     ${TABS.map(([k, t, i]) => `<button class="nv ${S.tab === k ? 'on' : ''}" data-a="tab" data-id="${k}">${ic(i)}${t}${k === 'dates' && urgent ? `<span class="tag bad" style="margin-left:auto">${urgent}</span>` : ''}</button>`).join('')}
